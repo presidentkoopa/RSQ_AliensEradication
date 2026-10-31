@@ -101,7 +101,16 @@ class AET_LoaderTest : EventHandler
 		int n = t - 60;		// tics since the test proper began
 
 		// something to hit, 60 units in front, for the melee and arc scripts
-		if ((s == 1 || s == 2 || s == 3) && n == 1)
+		// 1 and 6 (swing, ram), off the ledge: an imp at the claw (72 out) that stays put
+		if ((s == 1 || s == 6) && n == 20)
+		{
+			Vector3 at = mo.pos + (cos(mo.angle), sin(mo.angle), 0) * 72.0;
+			subject = Actor.Spawn('DoomImp', at, NO_REPLACE);
+			if (subject)
+				subject.Speed = 0;
+			Console.Printf("LOADER monster %s spawned t%d at 72 units", subject ? subject.GetClassName() : 'NONE', t);
+		}
+		if ((s == 2 || s == 3) && n == 1)
 		{
 			Vector3 at = mo.pos + (cos(mo.angle), sin(mo.angle), 0) * 60.0;
 			subject = Actor.Spawn('ExplosiveBarrel', at);
@@ -120,7 +129,7 @@ class AET_LoaderTest : EventHandler
 		// imp and the off arm's attack on it. The run sets ae_loader_crush_tics 70 so the hold
 		// lasts two seconds before the crush lands.
 		// doom2 MAP01 starts the player on a ledge: step ~2 m forward first (owner, 2026-10-31)
-		if (s == 9 && n == 0)
+		if ((s == 1 || s == 4 || s == 6 || s == 9) && n == 0)
 		{
 			mo.SetOrigin(mo.pos + (cos(mo.angle), sin(mo.angle), 0) * 80.0, false);
 			Console.Printf("LOADER moved 80 units forward (off the ledge)");
@@ -135,12 +144,14 @@ class AET_LoaderTest : EventHandler
 		}
 
 		// a barrel within the claw's reach for grab / throw / crush
-		if ((s == 4 || s == 5 || s == 8) && n == 1 && s != 8)
+		if ((s == 4 && n == 20 || s == 5 && n == 1))
 		{
 			Vector3 at = mo.pos + (cos(mo.angle), sin(mo.angle), 0) * 40.0;
 			at.z += 20;
+			if (s == 4)
+				at = AE_LoaderHandler.ClawPoint(mo, false);	// off the ledge: right in the claw
 			subject = Actor.Spawn('ExplosiveBarrel', at);
-			Console.Printf("LOADER barrel spawned at %s", subject ? "40 units ahead" : "NOWHERE");
+			Console.Printf("LOADER barrel spawned %s", subject ? (s == 4 ? "in the claw" : "40 units ahead") : "NOWHERE");
 		}
 
 		// --- the buttons ---------------------------------------------------------------
@@ -162,14 +173,14 @@ class AET_LoaderTest : EventHandler
 		// between about tic 8 and tic 18 with the trigger still held: hold 4 throughout, add
 		// 8 at tic 12, and be finished before 19.
 		if (s == 4)
-			want |= (n < 19) ? (4 | ((n >= 12 && n < 16) ? 8 : 0)) : 0;
+			want |= (n >= 25 && n < 44) ? (4 | ((n >= 37 && n < 41) ? 8 : 0)) : 0;	// shifted 25: the barrel appears at n 20, off the ledge
 		if (s == 5)
 			want |= 4;				// main trigger, held, to crush
 		if (s == 8)
 			want |= 4;		// held throughout: the run raises ae_loader_crush_tics so the
 							// crush cannot fire and end the test early
 		if (s == 6)
-			want |= 8;				// main alt with nothing held: the ram
+			want |= (n >= 30 && n < 36) ? 8 : 0;	// main alt with nothing held: the ram (one press, imp at the claw)
 		if (s == 9)
 			want |= (n >= 25 && n < 130) ? 4 : (n >= 160 && n < 250) ? 1 : 0;	// claw shut, then off arm attack
 		let bc = CVar.FindCVar('aet_buttons');
@@ -200,6 +211,9 @@ class AET_LoaderTest : EventHandler
 				b ? String.Format("%d", b.Frame) : "-", Cnt('AE_LoaderCageSpark'));
 		}
 
+		if ((s == 1 || s == 4 || s == 6) && n >= 20 && (n % 3) == 0 && subject && n < 90)
+			Console.Printf("LOADER subject t%d %s hp %d vel %.1f dist %.0f", t, subject.GetClassName(), subject.health,
+				subject.vel.Length(), subject.Distance3D(mo));
 		if (s == 9 && n >= 20 && n < 30 && subject)
 			Console.Printf("LOADER early t%d imp pos %.0f %.0f %.0f vel %.1f %.1f %.1f floor %.0f me %.0f %.0f %.0f", t,
 				subject.pos.x, subject.pos.y, subject.pos.z, subject.vel.x, subject.vel.y, subject.vel.z, subject.floorz, mo.pos.x, mo.pos.y, mo.pos.z);

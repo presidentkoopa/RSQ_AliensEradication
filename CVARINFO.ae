@@ -180,7 +180,9 @@ user float ae_loader_swing = 14.0;			// claw speed that counts as a swing, 0 = o
 user float ae_loader_swing_gap = 12.0;		// tics between swings
 server float ae_loader_reach = 72.0;		// how far the claw is from your hand, map units
 server float ae_loader_claw_radius = 40.0;	// how wide a swing reaches
-server float ae_loader_damage = 180.0;		// damage a swing does
+server float ae_loader_swing_damage = 100.0;		// damage a swing does (owner 2026-10-31: 100, knocked aside, stunned)
+server float ae_loader_swing_push = 18.0;	// how hard a swing knocks a 100-mass body aside
+server float ae_loader_stun = 35.0;		// tics a swung-into enemy is held in its pain state
 server float ae_loader_grab_radius = 48.0;	// how close the claw must be to take something
 server float ae_loader_carry = 0.35;		// how hard the claw pulls what it holds
 server float ae_loader_throw = 1.6;			// throw speed multiplier
@@ -211,5 +213,10 @@ server float ae_loader_swing_len = 24.0;	// cm the boom must have travelled in 3
 server float ae_stab_along = 0.3;		// how much of the motion must be down the blade for a THRUST
 server float ae_stab_across = 0.6;		// how much must be across it for a SLASH
 server float ae_slash_speed_mul = 1.35;	// a slash wants more speed than a stab: a stab is short by nature
+server float ae_knife_fist_mul = 1.3;		// knife damage = this x the fist's (owner 2026-10-31)
+server float ae_punch_forward = 0.6;		// fist: share of the move that must be forward of the body
+server float ae_punch_jab = 12.0;		// fist: cm forward over the last four tics
+server float ae_punch_front = 25.0;		// fist: cm the hand must end ahead of the body
+server float ae_hitstop = 1.0;		// hitstop scale (0 off): struck things freeze 3-6 tics
 server float ae_stab_travel = 9.0;		// cm the hand must actually have travelled, not just twitched fast
 server float ae_stab_push = 3.0;		// how hard a cut shoves what it cuts, scaled by the body's mass

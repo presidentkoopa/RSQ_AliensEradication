@@ -1,6 +1,6 @@
 import os, sys, zipfile
 src, out = sys.argv[1], sys.argv[2]
-SKIP_DIRS = {'.git', 'docs', 'tools'}
+SKIP_DIRS = {'.git', 'docs', 'tools', 'pk3'}   # pk3/ holds the built pack itself
 SKIP_FILES = {'.gitignore'}
 n = 0
 if os.path.exists(out):

@@ -214,6 +214,8 @@ class AE_LoaderHandler : EventHandler
 	double  step[MAXPLAYERS];				// footstep phase accumulator
 	bool    hadPose[MAXPLAYERS];
 	bool    humming[MAXPLAYERS];
+	bool    footR[MAXPLAYERS];
+	Actor   humAt[MAXPLAYERS];		// the hum's carried emitter (on the machine, not the chest)
 	int     quakes[MAXPLAYERS];
 
 	// STEP 4, MASS THROUGH LAG. A ring of each hand's AIM. Lagging the aim needs no frame
@@ -387,15 +389,15 @@ class AE_LoaderHandler : EventHandler
 			for (int h = 0; h < 2; h++)
 			{
 				int i = n * 2 + h;
-				Vector3 cur = RSVR_HandMotion.HandPos(mo, h == 1);
+				// THE SPINE, 2026-10-31: the arm's speed comes from RSVR_Pose, the hand stored in the
+				// pawn's own frame. A turn of any rate is subtracted exactly and a teleport is
+				// refused on evidence; RSVR_HandMotion.Bogus()'s 10-deg-per-tic flush is gone.
+				// cm per tic, the unit every loader threshold is written in.
 				double s = 0.0;
-				if (hadPose[n])
-				{
-					Vector3 hs = cur - handPrev[i];
-					s = RSVR_HandMotion.Bogus(hs, yawDelta)
-					    ? 0.0 : RSVR_HandMotion.Speed(hs, bodyStep);
-				}
-				handPrev[i] = cur;
+				let pose = RSVR_Pose.Get();
+				if (pose && pose.Delta(mo, h, 1))
+					s = pose.dStep.Length() / (pose.dSecs * 35.0);
+				handPrev[i] = RSVR_VRHand.HandPos(mo);
 
 				// fastest of the last three tics, so a flick counts like a sweep
 				spRing[i * 3 + 2] = spRing[i * 3 + 1];
@@ -475,7 +477,10 @@ class AE_LoaderHandler : EventHandler
 		int inten = int(clamp(1.0 + sp / 12.0, 1.0, 3.0) * q);
 		if (inten > 0)
 		{
-			mo.A_Quake(inten, 6, 0, 256, "");
+			// per foot (2026-10-31): left foot in X (left controller), right foot in Y, so the
+			// stomps alternate between the hands. damrad 0; tremrad 256 so others feel it coming.
+			footR[n] = !footR[n];
+			mo.A_QuakeEx(footR[n] ? 0 : inten, footR[n] ? inten : 0, 0, 6, 0, 256, "");
 			quakes[n]++;
 		}
 	}
@@ -493,14 +498,30 @@ class AE_LoaderHandler : EventHandler
 			Hush(mo, n);
 			return;
 		}
+		// THE HUM COMES FROM THE MACHINE (2026-10-31): a carried emitter riding behind and above
+		// the operator (where the P-5000's power pack is), moved every tic, looping, its volume
+		// and pitch re-asserted every tic -- the saber's two lessons, kept.
+		if (!humAt[n])
+		{
+			humAt[n] = Actor.Spawn('AE_LoaderNoise', mo.pos, ALLOW_REPLACE);
+			if (humAt[n])
+			{
+				humAt[n].target = mo;
+				humAt[n].tics = -1;
+			}
+			humming[n] = false;
+		}
+		Actor e = humAt[n] ? humAt[n] : Actor(mo);
+		if (humAt[n])
+			humAt[n].SetOrigin(mo.pos + (-cos(mo.angle) * 12, -sin(mo.angle) * 12, 48), true);
 		if (!humming[n])
 		{
-			mo.A_StartSound("ae/loaderhum", CHAN_7, CHANF_LOOPING, vol);
+			e.A_StartSound("ae/loaderhum", CHAN_7, CHANF_LOOPING, vol);
 			humming[n] = true;
 		}
-		mo.A_SoundVolume(CHAN_7, vol);
+		e.A_SoundVolume(CHAN_7, vol);
 		double ref = max(F('ae_loader_hum_ref', 90.0), 1.0);
-		mo.A_SoundPitch(CHAN_7, 1.0 + clamp((armSpeed - 6.0) / ref, 0.0, 0.3));
+		e.A_SoundPitch(CHAN_7, 1.0 + clamp((armSpeed - 6.0) / ref, 0.0, 0.3));
 	}
 
 	// THE ROTATING BEACON. The mesh (loader_lamp.md3, one surface named loader_alarm), its
@@ -834,12 +855,16 @@ class AE_LoaderHandler : EventHandler
 		// ON ITS OWN LINE: "ZScript will not dereference .z off a parenthesised expression"
 		// -- the same reference's trap table, and it rejected this exact line first time with
 		// "Unable to dereference left side of Z".
-		Vector3 hNow = RSVR_HandMotion.HandPos(mo, h == 1);
-		double dz = hNow.z - handPrev[i].z;
-		double rise = armSpeed > 0 ? dz * 100.0 * 1.2 / 34.0 / armSpeed : 0;
+		// From the spine, 2026-10-31. The old read took handPrev AFTER the tick had already
+		// overwritten it with this tic's point, so dz was always 0 and the direction gate never
+		// saw a rise. Now: the vertical share of this tic's move, and the path walked over three.
+		let pose = RSVR_Pose.Get();
+		double rise = 0.0;
+		if (pose && pose.Delta(mo, h, 1) && pose.dStep.Length() > 0.001)
+			rise = pose.dStep.z / pose.dStep.Length();
 		if (rise > -clamp(F('ae_loader_swing_down', 0.0), 0.0, 0.9))
 			return;
-		double travel = spRing[i * 3 + 0] + spRing[i * 3 + 1] + spRing[i * 3 + 2];
+		double travel = pose ? pose.Travel(mo, h, 3) : 0.0;
 		if (travel < F('ae_loader_swing_len', 24.0))
 			return;
 
@@ -1005,6 +1030,43 @@ class AE_LoaderHandler : EventHandler
 		                              (int(pt.z * 8) << 1) | 1);
 	}
 
+	// HIT FEEL (owner 2026-10-31, from RSQ_QuestEngineSurvey 01_MELEE 3.6 / 99_OVERLOOKED 1a).
+	// Hitstop: the struck thing stops dead for a few tics (freezetics halts AActor::Tick, AI and
+	// movement both); its velocity is kept, so a shove lands when the freeze ends.
+	static void HitStop(Actor t, int tics)
+	{
+		double k = F2('ae_hitstop', 1.0);
+		if (!t || t.player || t.health <= 0 || k <= 0)
+			return;
+		t.freezetics = max(int(t.freezetics), int(tics * k + 0.5));
+	}
+
+	// A rumble on ONE controller: A_QuakeEx sends intensity X to the left controller and Y to
+	// the right (r_utility.cpp:1085-1091); VR view shake is off by default (r_quakeintensity 0).
+	// damrad 0: it never hurts or shoves anyone. Right-handed (vr_control_scheme < 10) the off
+	// hand is the left controller.
+	static void Rumble(PlayerPawn mo, bool off, int inten, int tics)
+	{
+		if (!mo || !mo.player || inten <= 0 || F2('ae_loader_haptic', 1.0) <= 0)
+			return;
+		let cs = CVar.GetCVar('vr_control_scheme', mo.player);
+		bool lefty = cs && cs.GetInt() >= 10;
+		bool left = off != lefty;
+		mo.A_QuakeEx(left ? inten : 0, left ? 0 : inten, 0, tics, 0, 64, "");
+	}
+
+	// Stun (owner 2026-10-31: the swing "knocks it aside and stuns it"): into its pain state and
+	// held there a while. It still moves (the knock-aside velocity plays out); it does not act.
+	static void Stun(Actor t, int tics)
+	{
+		if (!t || t.player || t.health <= 0 || tics <= 0)
+			return;
+		let ps = t.FindState('Pain');
+		if (ps)
+			t.SetState(ps);
+		t.tics = max(t.tics, tics);
+	}
+
 	static Vector3 ClawPoint(PlayerPawn mo, bool off)
 	{
 		double ps = mo.Level.pixelstretch;
@@ -1078,7 +1140,10 @@ class AE_LoaderHandler : EventHandler
 				}
 			}
 			if (best)
+			{
 				Take(mo, i, best);
+				Rumble(mo, hand == 1, 2, 4);
+			}
 			return;
 		}
 
@@ -1120,9 +1185,12 @@ class AE_LoaderHandler : EventHandler
 				// NOT thrustless -- the velocity above IS the shove, and the document's
 				// complaint about DMG_THRUSTLESS is bodies that do not move. They move here.
 				t.DamageMobj(mo, mo, dmg, 'Melee', DMG_THRUSTLESS);
+				HitStop(t, 6);
 				any = true;
 			}
 			Say(mo, pt, any ? "melee/hitwall" : "ALIECLW1", 0.9);
+			if (any)
+				Rumble(mo, hand == 1, 3, 6);
 			if (any)
 				RSQ_MeleeHandler.Buzz(mo);
 			return;
@@ -1174,6 +1242,8 @@ class AE_LoaderHandler : EventHandler
 				// DMG_THRUSTLESS: an arc burns, it does not shove. A shove here would walk
 				// bodies out of the chain between links.
 				best.DamageMobj(mo, mo, dmg, 'Electric', DMG_THRUSTLESS);
+				HitStop(best, 3);
+				Rumble(mo, hand == 1, 1, 4);
 				from = best.pos + (0, 0, best.height * 0.5);
 				reach = creep;
 			}
@@ -1211,6 +1281,23 @@ class AE_LoaderHandler : EventHandler
 			let t = held[i];
 			if (!t)
 				return;
+			// REACHABILITY, 2026-10-31: the ram, arc and swing already refuse a target behind a
+			// wall; the crush did not. A thing the spring has pinned on the far side of a wall is
+			// not in the jaws.
+			if (!Reaches(mo, mo.pos + (0, 0, mo.player ? mo.player.viewheight : 41.0), t))
+				return;
+			// ONE PRESS KILLS UP TO AN IMP (owner 2026-10-31); anything bigger takes a longer
+			// hold. The bite is an imp's own spawn health, read from its class, not a guess.
+			// Each crush_tics of hold is one bite; HandGrab sends the next one while it is held.
+			int bite = int(F2('ae_loader_crush_damage', GetDefaultByType('DoomImp').Health));
+			Rumble(mo, hand == 1, 4, 10);
+			if (t.health > bite)
+			{
+				t.DamageMobj(mo, mo, bite, 'Crush', DMG_FORCED);
+				HitStop(t, 4);
+				Say(mo, ClawPoint(mo, hand == 1), "melee/hitwall", 0.9, 0.8);
+				return;		// still held: keep squeezing
+			}
 			Drop(i);
 			// past the gib threshold, so it comes apart rather than just dying. Not A_Die,
 			// which deals exactly health and leaves it whole; never Destroy, which gives no
@@ -1228,7 +1315,7 @@ class AE_LoaderHandler : EventHandler
 
 		Vector3 pt = (e.Args[0] / 8.0, e.Args[1] / 8.0, (e.Args[2] >> 1) / 8.0);
 		double rad = F2('ae_loader_claw_radius', 40.0);
-		int dmg = int(F2('ae_loader_damage', 180.0));
+		int dmg = int(F2('ae_loader_swing_damage', 100.0));		// owner 2026-10-31: 100, knocked aside, stunned
 
 		let it = BlockThingsIterator.CreateFromPos(pt.x, pt.y, pt.z, 0, rad, false);
 		int hits = 0;
@@ -1251,7 +1338,22 @@ class AE_LoaderHandler : EventHandler
 			if (!Reaches(mo, pt, t))
 				continue;
 			hits++;
-			t.DamageMobj(mo, mo, dmg, 'Melee');
+			t.DamageMobj(mo, mo, dmg, 'Melee', DMG_THRUSTLESS);
+			if (t.health > 0 && !t.bBOSS)
+			{
+				// knocked aside: away from you, out along the arm, a little up
+				Vector3 away = t.pos - mo.pos;
+				away.z = 0;
+				double al = away.Length();
+				if (al > 0.01)
+				{
+					double push = F2('ae_loader_swing_push', 18.0) * 100.0 / max(t.Mass, 50);
+					t.vel += away / al * push + (0, 0, push * 0.3);
+				}
+				Stun(t, int(F2('ae_loader_stun', 35.0)));
+				HitStop(t, 4);
+			}
+			Rumble(mo, hand == 1, 3, 6);
 			// and the sound comes from the thing that was hit, not from inside the player's
 			// chest: "a metre-long blade's whoosh arrives from inside your chest, dead
 			// centre, the same whatever you do with your arm" (SABER, three commits).
@@ -1445,6 +1547,7 @@ class AE_LoaderHandler : EventHandler
 				if (!o || o == t || !o.bShootable || o.health <= 0 || o.player)
 					continue;
 				o.DamageMobj(t, t, dmg, 'Melee');
+				HitStop(o, 6);
 			}
 			if (t.bShootable && t.health > 0)
 				t.DamageMobj(t, t, dmg / 2, 'Melee');
@@ -1486,7 +1589,8 @@ class AE_LoaderHandler : EventHandler
 		if (clawShut[i] >= 0.98)
 		{
 			crushFor[i]++;
-			if (crushFor[i] == int(max(F2('ae_loader_crush_tics', 12.0), 1.0)))
+			int ct = int(max(F2('ae_loader_crush_tics', 12.0), 1.0));
+			if (crushFor[i] % ct == 0)		// every crush_tics of hold is one more bite
 				EventHandler.SendNetworkEvent("ae_crush", h, 0, 0);
 		}
 		else
@@ -1505,7 +1609,14 @@ class AE_LoaderHandler : EventHandler
 		if (humming[n])
 		{
 			mo.A_StopSound(CHAN_7);
+			if (humAt[n])
+				humAt[n].A_StopSound(CHAN_7);
 			humming[n] = false;
+		}
+		if (humAt[n])
+		{
+			humAt[n].Destroy();
+			humAt[n] = null;
 		}
 	}
 
@@ -1525,10 +1636,9 @@ class AE_LoaderHandler : EventHandler
 		if (was < trip || now > trip / 3.0)
 			return;
 		quiet[i] = 10;
-		mo.A_StartSound("melee/hitwall", CHAN_AUTO, 0, clamp(was / 40.0, 0.4, 1.0), ATTN_NORM,
-		                clamp(0.7 + was / 120.0, 0.7, 1.0));
-		if (F('ae_loader_haptic', 1.0) > 0)
-			mo.SpawnPlayerMissile('RSVR_Buzz', mo.angle, noautoaim: true,
-			                      aimflags: off ? ALF_ISOFFHAND : 0);
+		// from the claw that stopped, not from inside the player (2026-10-31)
+		Say(mo, ClawPoint(mo, off), "melee/hitwall", clamp(was / 40.0, 0.4, 1.0),
+		    clamp(0.7 + was / 120.0, 0.7, 1.0));
+		Rumble(mo, off, 2, 4);
 	}
 }

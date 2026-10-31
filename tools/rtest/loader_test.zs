@@ -105,7 +105,8 @@ class AET_LoaderTest : EventHandler
 		if ((s == 1 || s == 6) && n == 20)
 		{
 			Vector3 at = mo.pos + (cos(mo.angle), sin(mo.angle), 0) * 72.0;
-			subject = Actor.Spawn('DoomImp', at, NO_REPLACE);
+			class<Actor> mc1 = F('aet_big', 0) > 0 ? 'Revenant' : 'DoomImp';
+			subject = Actor.Spawn(mc1, at, NO_REPLACE);
 			if (subject)
 				subject.Speed = 0;
 			Console.Printf("LOADER monster %s spawned t%d at 72 units", subject ? subject.GetClassName() : 'NONE', t);
@@ -137,7 +138,8 @@ class AET_LoaderTest : EventHandler
 		if (s == 9 && (n == 20 || n == 150))
 		{
 			Vector3 at = mo.pos + (cos(mo.angle), sin(mo.angle), 0) * (n == 20 ? 72.0 : 90.0);	// the claw sits ae_loader_reach (72) out
-			subject = Actor.Spawn('DoomImp', at, NO_REPLACE);
+			class<Actor> mc = (s == 9 && n == 20 && F('aet_big', 0) > 0) ? 'Revenant' : 'DoomImp';
+			subject = Actor.Spawn(mc, at, NO_REPLACE);
 			if (subject)
 				subject.Speed = 0;		// it still turns, attacks and feels pain; it just does not wander out of reach
 			Console.Printf("LOADER monster %s spawned t%d at %.0f units", subject ? subject.GetClassName() : 'NONE', t, n == 20 ? 72.0 : 90.0);
@@ -212,8 +214,9 @@ class AET_LoaderTest : EventHandler
 		}
 
 		if ((s == 1 || s == 4 || s == 6) && n >= 20 && (n % 3) == 0 && subject && n < 90)
-			Console.Printf("LOADER subject t%d %s hp %d vel %.1f dist %.0f", t, subject.GetClassName(), subject.health,
-				subject.vel.Length(), subject.Distance3D(mo));
+			Console.Printf("LOADER subject t%d %s hp %d vel %.1f dist %.0f freeze %d tics %d %s", t, subject.GetClassName(), subject.health,
+				subject.vel.Length(), subject.Distance3D(mo), subject.freezetics, subject.tics,
+				subject.InStateSequence(subject.CurState, subject.FindState('Pain')) ? "PAIN" : "");
 		if (s == 9 && n >= 20 && n < 30 && subject)
 			Console.Printf("LOADER early t%d imp pos %.0f %.0f %.0f vel %.1f %.1f %.1f floor %.0f me %.0f %.0f %.0f", t,
 				subject.pos.x, subject.pos.y, subject.pos.z, subject.vel.x, subject.vel.y, subject.vel.z, subject.floorz, mo.pos.x, mo.pos.y, mo.pos.z);

@@ -144,8 +144,25 @@ class RSQ_MeleeHandler : EventHandler
 			if (offCool[n] > 0) offCool[n]--;
 			if (!KnifeHeld(p))
 				continue;
-			double sh = dh.Length() * 35.0 / vu;
-			double so = dq.Length() * 35.0 / vu;
+			// THE SPINE, 2026-10-31: speeds and directions from RSVR_Pose (the hand in the pawn's
+			// own frame, turns subtracted, teleports refused) instead of raw point differences.
+			let pose = RSVR_Pose.Get();
+			double sh = 0, so = 0;
+			Vector3 mvh = (0, 0, 0), mvo = (0, 0, 0);
+			if (pose && pose.Delta(mo, 0, 1))
+			{
+				sh = pose.dStep.Length() / pose.dSecs / 100.0;		// m/s
+				Vector3 w = RSVR_Pose.ToWorld(mo, pose.dStep);
+				mvh = w / max(w.Length(), 0.001);
+			}
+			Vector3 offStepBody = (0, 0, 0);
+			if (pose && pose.Delta(mo, 1, 1))
+			{
+				so = pose.dStep.Length() / pose.dSecs / 100.0;
+				offStepBody = pose.dStep;
+				Vector3 w = RSVR_Pose.ToWorld(mo, pose.dStep);
+				mvo = w / max(w.Length(), 0.001);
+			}
 			double len = reach * vu / 100.0;		// cm -> map units
 
 			// the knife: a thrust along the blade (the hand moving the way it points). The
@@ -156,7 +173,7 @@ class RSQ_MeleeHandler : EventHandler
 			bool swinging = sh >= need;
 			if (swinging && handCool[n] == 0)
 			{
-				Vector3 mv = dh / max(dh.Length(), 0.001);
+				Vector3 mv = mvh;
 				double along = mv dot kdir;			// +1 straight down the blade: a thrust
 				// A SLASH IS NOT A THRUST, 2026-10-24 (owner asked for "stab or slash"; this
 				// only ever had the stab). The test was `along > 0.3` -- the hand must move
@@ -179,8 +196,8 @@ class RSQ_MeleeHandler : EventHandler
 				// single idea in the three mods' swing detectors ... immune to exactly the
 				// thing a velocity test cannot see: a twitch, a tracker glitch, or one noisy
 				// sample". The hand must have gone somewhere, not merely twitched fast.
-				double moved = dh.Length() * 100.0 / vu;		// cm this tic
-				travelled[n] = travelled[n] * 0.6 + moved;		// a short decaying window
+				// the path the hand actually walked over the last three tics, from the spine
+				travelled[n] = pose ? pose.Travel(mo, 0, 3) : 0.0;
 				if ((thrust || slash) && travelled[n] >= F('ae_stab_travel', 9.0))
 				{
 					if (!hasPrev[n][0])
@@ -188,8 +205,9 @@ class RSQ_MeleeHandler : EventHandler
 						rootPrev[n][0] = h;
 						tipPrev[n][0] = tip;
 					}
+					// owner 2026-10-31: the knife hits for 1.3 x the fist's power
 					Sweep(mo, rootPrev[n][0], tipPrev[n][0], h, tip,
-						2 * random(1, 10), 'EnhancedKnifePuff', "ALIECLW1");
+						int(FistRoll() * F('ae_knife_fist_mul', 1.3) + 0.5), 'EnhancedKnifePuff', "ALIECLW1");
 				}
 			}
 			// the swing is over: let the next one hit these bodies again
@@ -199,19 +217,42 @@ class RSQ_MeleeHandler : EventHandler
 			tipPrev[n][0] = tip;
 			hasPrev[n][0] = true;
 
-			// the free fist: any fast punch, if nothing has the off hand. A fist has no blade,
-			// so its "segment" is the hand itself swept along its own travel.
-			if (so >= need && offCool[n] == 0 && p.OffhandWeapon is 'RSQ_Hands' && RSQ_MeleeHandler.OffFree(mo))
+			// THE FREE FIST, 2026-10-31: a real punch, not "any fast motion". BD22's four
+			// conditions (RSQ_QuestEngineSurvey 01_MELEE 4.1), all read from the spine in the
+			// pawn's own frame (+x forward):
+			//   FAST      off-hand speed over ae_stab_speed
+			//   FORWARD   this tic's move mostly forward of the body (ae_punch_forward of it)
+			//   A JAB     forward displacement over the last four tics (ae_punch_jab cm)
+			//   IN FRONT  the hand ends ahead of the body (ae_punch_front cm)
+			// plus the spike filter: a hand sitting on the body centre is the engine's
+			// menu/pause reset (hw_vrmodes.cpp:442), never a fist.
+			bool punch = false;
+			if (so >= need && offCool[n] == 0 && pose && offStepBody.Length() > 0.001)
 			{
-				Vector3 mv = dq / max(dq.Length(), 0.001);
+				double fwd = offStepBody.x / offStepBody.Length();
+				double jab = pose.Delta(mo, 1, 4) ? pose.dStep.x : 0.0;
+				double front = pose.Sample(mo, 1, 0) ? pose.sPt.x : 0.0;
+				bool onBody = pose.Sample(mo, 1, 0) && pose.sPt.Length() < 5.0;
+				punch = !onBody && fwd >= F('ae_punch_forward', 0.6) && jab >= F('ae_punch_jab', 12.0)
+				        && front >= F('ae_punch_front', 25.0);
+			}
+			if (punch && p.OffhandWeapon is 'RSQ_Hands' && RSQ_MeleeHandler.OffFree(mo))
+			{
+				Vector3 mv = mvo;
 				Vector3 ofrom = hasPrev[n][1] ? rootPrev[n][1] : o;
 				Sweep(mo, ofrom, ofrom + mv * (len * 0.35), o, o + mv * (len * 0.35),
-					random(2, 8), 'EnhancedKnifePuff', "ALIECLW1");
+					FistRoll(), 'EnhancedKnifePuff', "ALIECLW1");
 				offCool[n] = 12;
 			}
 			rootPrev[n][1] = o;
 			hasPrev[n][1] = true;
 		}
+	}
+
+	// the fist's power: one roll of the free fist's damage. The knife is ae_knife_fist_mul of it.
+	static int FistRoll()
+	{
+		return random(2, 8);
 	}
 
 	static bool OffFree(PlayerPawn mo)
@@ -295,6 +336,7 @@ class RSQ_MeleeHandler : EventHandler
 			// little lift, because "a shove with no lift: a body slides a few units and walks
 			// straight back in" (SABER, SHIELD both).
 			t.DamageMobj(mo, mo, dmg, 'Melee');
+			AE_LoaderHandler.HitStop(t, 3);		// hitstop, light (2026-10-31)
 			Vector3 dir = b1 - b0;
 			double dl = dir.Length();
 			if (dl > 0.01 && !t.bBOSS)

@@ -1,3 +1,4 @@
 *.pk3
 __pycache__/
 tools/rtest/aet/
+!pk3/AliensVR_Weapons.pk3

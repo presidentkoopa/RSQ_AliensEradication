@@ -36,128 +36,136 @@ OptionValue "AE_GrabWith"
 	2, "Use key"
 }
 
+// 2026-10-31 (owner): laid out the way the BD22 VR Weapons page is -- one page of options, spacers
+// between groups, the per-feature pages as submenus at the bottom, no help text on any page.
 OptionMenu "AE_Options"
 {
 	Title "ALIENS VR WEAPONS"
+	Option "VR Hands", "ae_hands", "OnOff"
+	Option "Left Handed", "ae_lefthanded", "OnOff"
+	Option "Reloading", "rsq_reload", "AE_ReloadMode"
+	Option "Grab ammo with", "rsr_grab_with", "AE_GrabWith"
+	Slider "Reload assist", "rsr_assist", 0.5, 3.0, 0.25, 2
+	Option "Flick Down to Reload", "ae_flick_reload", "OnOff"
+	Option "Shotgun Slugshot Alt Fire", "ae_shotgun_slug", "OnOff"
+	Option "Hand Fire Selector", "ae_handswitch", "OnOff"
+	Slider "Launcher Pump: Rounds Per Grenade", "ae_glpump_cost", 1, 40, 1, 0
+	Slider "Launcher Pump: Grab Radius (cm)", "ae_glpump_grab", 6.0, 30.0, 1.0, 0
+	Option "Body Holsters", "ae_holsters", "OnOff"
+	Option "Ballistics", "rsq_ballistics", "AE_Ballistics"
+	Option "Spent Casings", "ae_casings", "OnOff"
+	Option "Rounds Leave the Barrel", "ae_muzzle_bore", "OnOff"
 	StaticText " "
-	Option "VR Hands",                    "ae_hands",          "OnOff"
-	StaticText ""
-	StaticText "Gun hand rest offset (cm, bake when happy)", 1
-	Slider "Pistol hand forward",          "ae_pistolhand_fwd",  -10.0, 10.0, 0.25, 2
-	Slider "Pistol hand up",               "ae_pistolhand_up",   -10.0, 10.0, 0.25, 2
-	Slider "Pistol hand side (left +)",    "ae_pistolhand_side", -10.0, 10.0, 0.25, 2
-	Slider "Long gun hand forward",        "ae_gunhand_fwd",     -10.0, 10.0, 0.25, 2
-	Slider "Long gun hand up",             "ae_gunhand_up",      -10.0, 10.0, 0.25, 2
-	Slider "Long gun hand side (left +)",  "ae_gunhand_side",    -10.0, 10.0, 0.25, 2
-	Slider "Knife hand forward",           "ae_knifehand_fwd",   -10.0, 10.0, 0.25, 2
-	Slider "Knife hand up",                "ae_knifehand_up",    -10.0, 10.0, 0.25, 2
-	Slider "Knife hand side (left +)",     "ae_knifehand_side",  -10.0, 10.0, 0.25, 2
-	Slider "Smartgun hand forward",        "ae_smarthand_fwd",   -10.0, 10.0, 0.25, 2
-	Slider "Smartgun hand up",             "ae_smarthand_up",    -10.0, 10.0, 0.25, 2
-	Slider "Smartgun hand side (left +)",  "ae_smarthand_side",  -10.0, 10.0, 0.25, 2
-	Slider "Satchel hand forward",         "ae_satchelhand_fwd", -10.0, 10.0, 0.25, 2
-	Slider "Satchel hand up",              "ae_satchelhand_up",  -10.0, 10.0, 0.25, 2
-	Slider "Satchel hand side (left +)",   "ae_satchelhand_side", -10.0, 10.0, 0.25, 2
-	StaticText ""
-	StaticText "Support hand rest offset (cm) -- per family, NOT shared", 1
-	Slider "Long gun support forward",      "ae_support_gun_fwd",    -10.0, 10.0, 0.25, 2
-	Slider "Long gun support up",           "ae_support_gun_up",     -10.0, 10.0, 0.25, 2
-	Slider "Long gun support side (left +)", "ae_support_gun_side",  -10.0, 10.0, 0.25, 2
-	Slider "Pistol support forward",        "ae_support_pistol_fwd",  -10.0, 10.0, 0.25, 2
-	Slider "Pistol support up",             "ae_support_pistol_up",   -10.0, 10.0, 0.25, 2
-	Slider "Pistol support side (left +)",  "ae_support_pistol_side", -10.0, 10.0, 0.25, 2
-	Slider "Smartgun support forward",      "ae_support_smart_fwd",   -10.0, 10.0, 0.25, 2
-	Slider "Smartgun support up",           "ae_support_smart_up",    -10.0, 10.0, 0.25, 2
-	Slider "Smartgun support side (left +)", "ae_support_smart_side", -10.0, 10.0, 0.25, 2
-	Slider "Satchel hand yaw",             "ae_satchel_yaw",     -180.0, 180.0, 5.0, 0
-	Slider "Satchel hand pitch",           "ae_satchel_pitch",   -180.0, 180.0, 5.0, 0
-	Slider "Satchel hand roll",            "ae_satchel_roll",    -180.0, 180.0, 5.0, 0
-	Slider "Shell in hand yaw",            "ae_shell_yaw",       -90.0, 90.0, 5.0, 0
-	Slider "Shell in hand pitch",          "ae_shell_pitch",     -90.0, 90.0, 5.0, 0
-	Slider "Shell in hand roll",           "ae_shell_roll",      -90.0, 90.0, 5.0, 0
-	StaticText ""
-	Option "Left handed",                 "ae_lefthanded",     "OnOff"
-	Option "Reloading",                   "rsq_reload",        "AE_ReloadMode"
-	Option "Grab ammo with",              "rsr_grab_with",     "AE_GrabWith"
-	Slider "Reload assist",               "rsr_assist",        0.5, 3.0, 0.25, 2
-	Option "Show reload capture zones",   "rsr_assist_debug",  "OnOff"
-	Option "Flick down to reload",        "ae_flick_reload",   "OnOff"
-	Option "Shotgun slug alt fire",       "ae_shotgun_slug",   "OnOff"
-	Option "Hand fire selector",          "ae_handswitch",     "OnOff"
-	Option "Melee by motion (knife, fist)", "ae_stab",          "OnOff"
-	Option "Knife trigger swing animation", "ae_knife_swing",   "OnOff"
-	Slider "Melee swing speed (m/s)",      "ae_stab_speed",     1.0, 5.0, 0.25, 2
-	Slider "Melee reach (cm)",             "ae_stab_reach",     20.0, 120.0, 2.5, 0
-	Slider "Power loader: throw speed",     "ae_loader_fling",      0, 90, 2, 0
-	Slider "Power loader: throw lift",      "ae_loader_fling_lift", 0.0, 1.0, 0.02, 2
-	Slider "Power loader: arc rate (tics)", "ae_loader_arc_gap",    1, 35, 1, 0
-	Slider "Power loader: arc reach",       "ae_loader_arc_radius", 8, 128, 4, 0
-	Slider "Power loader: arc jump",        "ae_loader_arc_jump",   8, 192, 8, 0
-	Slider "Power loader: torch rate (tics)", "ae_loader_flame_rate", 1, 20, 1, 0
-	Option "Power loader: welding arc (off trigger)", "ae_loader_arc", "OnOff"
-	Slider "Power loader: arc damage",      "ae_loader_arc_damage", 0, 100, 2, 0
-	Slider "Power loader: arc chain",       "ae_loader_arc_chain",  1, 8, 1, 0
-	Option "Power loader: torch (off alt fire)", "ae_loader_flame", "OnOff"
-	Option "Power loader: arm ram (alt fire)", "ae_loader_ram",  "OnOff"
-	Slider "Power loader: ram damage",      "ae_loader_ram_damage", 0, 300, 10, 0
-	Slider "Power loader: ram push",        "ae_loader_ram_push",   0, 60, 2, 0
-	Option "Power loader: cab cage",        "ae_loader_cage",    "OnOff"
-	Slider "Power loader: cage absorbs",    "ae_loader_cage_absorb", 0.0, 0.9, 0.05, 2
-	Slider "Launcher pump: rounds per grenade", "ae_glpump_cost", 1, 40, 1, 0
-	Slider "Launcher pump: grab radius (cm)",   "ae_glpump_grab", 6.0, 30.0, 1.0, 0
-	Option "Body holsters",               "ae_holsters",       "OnOff"
-	Option "Ballistics",                  "rsq_ballistics",    "AE_Ballistics"
-	Option "Spent casings",               "ae_casings",        "OnOff"
-	Option "Rounds leave the barrel",     "ae_muzzle_bore",    "OnOff"
+	Submenu "Smartgun Options", "AE_SmartOptions"
 	StaticText " "
-	Submenu "Dual Options",               "AE_DualOptions"
-	Submenu "Smartgun Options",           "AE_SmartOptions"
+	Submenu "Dual Options", "AE_DualOptions"
 	StaticText " "
-	StaticText "No voxel options: this set ships no voxels.", "DarkGrey"
-	StaticText ""
-	StaticText "Power Loader", "Gold"
-	Slider "Walk speed in the loader",     "ae_loader_speed",        0.10, 1.00, 0.05, 2
-	Slider "Floor shake per step",         "ae_loader_quake",        0.0, 2.0, 0.25, 2
-	Slider "Hydraulic hum",                "ae_loader_hum",          0.0, 1.0, 0.05, 2
-	Slider "Arm clunk threshold",          "ae_loader_clunk",        0.0, 60.0, 2.0, 0
-	Option "Kick the controller on a clunk", "ae_loader_haptic",     "OnOff"
-	Option "Rotating beacon",              "ae_loader_beacon",       "OnOff"
-	Slider "Beacon speed (rpm)",           "ae_loader_beacon_rpm",   0.0, 300.0, 10.0, 0
-	Slider "Beacon light radius",          "ae_loader_beacon_radius", 0.0, 256.0, 16.0, 0
+	Option "VR Melee (Knife and Fist)", "ae_stab", "OnOff"
+	Option "Knife Trigger Swing Animation", "ae_knife_swing", "OnOff"
+	Slider "Melee Swing Speed (m/s)", "ae_stab_speed", 1.0, 5.0, 0.25, 2
+	Slider "Melee Reach (cm)", "ae_stab_reach", 20.0, 120.0, 2.5, 0
+	Slider "Knife Power (x fist)", "ae_knife_fist_mul", 0.5, 3.0, 0.1, 1
+	Slider "Hitstop", "ae_hitstop", 0.0, 2.0, 0.25, 2
+	StaticText " "
+	Submenu "Power Loader Options", "AE_LoaderOptions"
+	StaticText " "
+	Submenu "Hands: tuning", "AE_HandTuning"
+	Submenu "Reload: tuning and debug", "AE_ReloadDebug"
+}
 
+OptionMenu "AE_LoaderOptions"
+{
+	Title "POWER LOADER"
+	Slider "Walk Speed", "ae_loader_speed", 0.10, 1.00, 0.05, 2
+	Option "Cab Cage", "ae_loader_cage", "OnOff"
+	Slider "Cage Absorbs", "ae_loader_cage_absorb", 0.0, 0.9, 0.05, 2
+	StaticText " "
+	Slider "Swing Damage", "ae_loader_swing_damage", 0, 300, 10, 0
+	Slider "Swing Knockback", "ae_loader_swing_push", 0, 60, 2, 0
+	Slider "Swing Stun (tics)", "ae_loader_stun", 0, 105, 5, 0
+	Slider "Crush Time (tics)", "ae_loader_crush_tics", 4, 35, 1, 0
+	Slider "Throw Speed", "ae_loader_fling", 0, 90, 2, 0
+	Slider "Throw Lift", "ae_loader_fling_lift", 0.0, 1.0, 0.02, 2
+	Option "Arm Ram (Alt Fire)", "ae_loader_ram", "OnOff"
+	Slider "Ram Damage", "ae_loader_ram_damage", 0, 300, 10, 0
+	Slider "Ram Push", "ae_loader_ram_push", 0, 60, 2, 0
+	StaticText " "
+	Option "Welding Arc (Off Trigger)", "ae_loader_arc", "OnOff"
+	Slider "Arc Damage", "ae_loader_arc_damage", 0, 100, 2, 0
+	Slider "Arc Chain", "ae_loader_arc_chain", 1, 8, 1, 0
+	Slider "Arc Rate (tics)", "ae_loader_arc_gap", 1, 35, 1, 0
+	Slider "Arc Reach", "ae_loader_arc_radius", 8, 128, 4, 0
+	Slider "Arc Jump", "ae_loader_arc_jump", 8, 192, 8, 0
+	Option "Torch (Off Alt Fire)", "ae_loader_flame", "OnOff"
+	Slider "Torch Rate (tics)", "ae_loader_flame_rate", 1, 20, 1, 0
+	StaticText " "
+	Slider "Floor Shake Per Step", "ae_loader_quake", 0.0, 2.0, 0.25, 2
+	Slider "Hydraulic Hum", "ae_loader_hum", 0.0, 1.0, 0.05, 2
+	Slider "Arm Clunk Threshold", "ae_loader_clunk", 0.0, 60.0, 2.0, 0
+	Option "Controller Rumble", "ae_loader_haptic", "OnOff"
+	Option "Rotating Beacon", "ae_loader_beacon", "OnOff"
+	Slider "Beacon Speed (rpm)", "ae_loader_beacon_rpm", 0.0, 300.0, 10.0, 0
+	Slider "Beacon Light Radius", "ae_loader_beacon_radius", 0.0, 256.0, 16.0, 0
 }
 
 OptionMenu "AE_SmartOptions"
 {
-	Title "M56 SMARTGUN"
-	StaticText " "
-	Option "Target lock on",              "ae_smartlock",      "OnOff"
-	StaticText "The set shipped this bypassed by an unconditional", "DarkGrey"
-	StaticText "jump, so the gun never looked for a target.", "DarkGrey"
-	StaticText " "
-	Option "Harness gimbal",              "ae_gimbal",         "OnOff"
-	StaticText "The gun swings to follow a target; your hands stay put.", "DarkGrey"
-	Option "Gimbal leans the wrong way",  "ae_gimbal_flip",    "OnOff"
-	StaticText " "
-	StaticText "Rounds already track: the set's own SmartgunTracer is", "DarkGrey"
-	StaticText "a seeker missile. The gimbal just makes it seek what", "DarkGrey"
-	StaticText "the gun is aimed at rather than a target of its own.", "DarkGrey"
+	Title "SMARTGUN OPTIONS"
+	Option "Target Lock On", "ae_smartlock", "OnOff"
+	Option "Harness Gimbal", "ae_gimbal", "OnOff"
+	Option "Gimbal Leans the Wrong Way", "ae_gimbal_flip", "OnOff"
 }
 
 OptionMenu "AE_DualOptions"
 {
-	Title "DUAL WIELD"
+	Title "DUAL OPTIONS"
+	Option "Pistol Start", "ae_start_dual", "AE_StartDual"
+	Option "Pistol", "ae_dual_pistol", "OnOff"
+	Option "Shotgun", "ae_dual_shotgun", "OnOff"
+	Option "Pulse Rifle", "ae_dual_rifle", "OnOff"
+	Option "Flamethrower", "ae_dual_flamer", "OnOff"
+}
+
+OptionMenu "AE_HandTuning"
+{
+	Title "HANDS: TUNING"
+	Slider "Pistol Hand Forward", "ae_pistolhand_fwd", -10.0, 10.0, 0.25, 2
+	Slider "Pistol Hand Up", "ae_pistolhand_up", -10.0, 10.0, 0.25, 2
+	Slider "Pistol Hand Side (left +)", "ae_pistolhand_side", -10.0, 10.0, 0.25, 2
+	Slider "Long Gun Hand Forward", "ae_gunhand_fwd", -10.0, 10.0, 0.25, 2
+	Slider "Long Gun Hand Up", "ae_gunhand_up", -10.0, 10.0, 0.25, 2
+	Slider "Long Gun Hand Side (left +)", "ae_gunhand_side", -10.0, 10.0, 0.25, 2
+	Slider "Knife Hand Forward", "ae_knifehand_fwd", -10.0, 10.0, 0.25, 2
+	Slider "Knife Hand Up", "ae_knifehand_up", -10.0, 10.0, 0.25, 2
+	Slider "Knife Hand Side (left +)", "ae_knifehand_side", -10.0, 10.0, 0.25, 2
+	Slider "Smartgun Hand Forward", "ae_smarthand_fwd", -10.0, 10.0, 0.25, 2
+	Slider "Smartgun Hand Up", "ae_smarthand_up", -10.0, 10.0, 0.25, 2
+	Slider "Smartgun Hand Side (left +)", "ae_smarthand_side", -10.0, 10.0, 0.25, 2
+	Slider "Satchel Hand Forward", "ae_satchelhand_fwd", -10.0, 10.0, 0.25, 2
+	Slider "Satchel Hand Up", "ae_satchelhand_up", -10.0, 10.0, 0.25, 2
+	Slider "Satchel Hand Side (left +)", "ae_satchelhand_side", -10.0, 10.0, 0.25, 2
 	StaticText " "
-	Option "Dual pistols",                "ae_dual_pistol",    "OnOff"
-	Option "Dual shotguns",               "ae_dual_shotgun",   "OnOff"
-	Option "Dual pulse rifles",           "ae_dual_rifle",     "OnOff"
-	Option "Dual flamethrowers",          "ae_dual_flamer",    "OnOff"
+	Slider "Long Gun Support Forward", "ae_support_gun_fwd", -10.0, 10.0, 0.25, 2
+	Slider "Long Gun Support Up", "ae_support_gun_up", -10.0, 10.0, 0.25, 2
+	Slider "Long Gun Support Side (left +)", "ae_support_gun_side", -10.0, 10.0, 0.25, 2
+	Slider "Pistol Support Forward", "ae_support_pistol_fwd", -10.0, 10.0, 0.25, 2
+	Slider "Pistol Support Up", "ae_support_pistol_up", -10.0, 10.0, 0.25, 2
+	Slider "Pistol Support Side (left +)", "ae_support_pistol_side", -10.0, 10.0, 0.25, 2
+	Slider "Smartgun Support Forward", "ae_support_smart_fwd", -10.0, 10.0, 0.25, 2
+	Slider "Smartgun Support Up", "ae_support_smart_up", -10.0, 10.0, 0.25, 2
+	Slider "Smartgun Support Side (left +)", "ae_support_smart_side", -10.0, 10.0, 0.25, 2
 	StaticText " "
-	Option "Pistol start",                "ae_start_dual",     "AE_StartDual"
-	StaticText " "
-	StaticText "Each hand keeps its own magazine; the reserve is shared.", "DarkGrey"
-	StaticText "You get the second gun by picking one up, or from the", "DarkGrey"
-	StaticText "start above. The Dual key swaps the off hand back to a", "DarkGrey"
-	StaticText "free hand, which is how you do a hands-on VR reload.", "DarkGrey"
-	StaticText "With two guns out, flick down to reload that hand.", "DarkGrey"
+	Slider "Satchel Hand Yaw", "ae_satchel_yaw", -180.0, 180.0, 5.0, 0
+	Slider "Satchel Hand Pitch", "ae_satchel_pitch", -180.0, 180.0, 5.0, 0
+	Slider "Satchel Hand Roll", "ae_satchel_roll", -180.0, 180.0, 5.0, 0
+	Slider "Shell in Hand Yaw", "ae_shell_yaw", -90.0, 90.0, 5.0, 0
+	Slider "Shell in Hand Pitch", "ae_shell_pitch", -90.0, 90.0, 5.0, 0
+	Slider "Shell in Hand Roll", "ae_shell_roll", -90.0, 90.0, 5.0, 0
+}
+
+OptionMenu "AE_ReloadDebug"
+{
+	Title "RELOAD: TUNING AND DEBUG"
+	Option "Show the capture zones", "rsr_assist_debug", "OnOff"
+	Option "Print each reload step", "rsr_debug", "OnOff"
 }

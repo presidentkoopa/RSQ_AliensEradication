@@ -39,10 +39,10 @@ import fixmapset
 
 H = os.path.dirname(os.path.abspath(__file__))
 PACK = os.path.abspath(os.path.join(H, '..', '..'))
-ENG = 'E:/DOOMWork/QZD17-engine/build/Release'
+ENG = os.environ.get('AET_ENG', 'E:/DOOMWork/QZD17-engine/build/Release')   # Linux rig: AET_ENG=/home/claude/rig (runs ./qz)
 AE = 'D:/SteamLibrary/steamapps/common/DooM VR/__Games/Aliens/Eradication'
-TC = AE + '/_A01_ALIENS_ERADICATION_TC_2_0.pk3'
-MAPSET = AE + '/_A02_ERADICATION_MAPSET_2_0.wad'
+TC = os.environ.get('AET_TC', AE + '/_A01_ALIENS_ERADICATION_TC_2_0.pk3')
+MAPSET = os.environ.get('AET_MAPSET', AE + '/_A02_ERADICATION_MAPSET_2_0.wad')   # optional: without it the run is on doom2 MAP01
 SCRATCH = os.environ.get('TMPDIR', os.environ.get('TEMP', H)) + '/aet'
 
 CVARS = '''user int rsrtest_script = 0;
@@ -105,7 +105,7 @@ def run(name, tmo, specs):
     shutil.copy(os.path.join(H, 'template.ini'), ini)
     pk3 = os.path.join(SCRATCH, 'aet_pack.pk3')
     # the mapset with its MAPINFO episode block closed -- a COPY, in scratch; see fixmapset.py
-    mapset, _why = fixmapset.build(MAPSET, os.path.join(SCRATCH, 'mapset_fixed.wad'))
+    mapset = fixmapset.build(MAPSET, os.path.join(SCRATCH, 'mapset_fixed.wad'))[0] if os.path.exists(MAPSET) else None
     ov = os.path.join(SCRATCH, 'aet_overlay.pk3')
     log = os.path.join(SCRATCH, name + '.log')
 
@@ -128,9 +128,9 @@ def run(name, tmo, specs):
         cmds.append(c)
     cmds += ['wait 5', 'quit']
 
-    argv = [os.path.join(ENG, 'qzdoom.exe'),
-            '-iwad', 'doom2.wad',
-            '-file', TC, '-file', mapset, '-file', pk3, '-file', ov,
+    exe = os.path.join(ENG, 'qzdoom.exe') if os.name == 'nt' else os.path.join(ENG, 'qz')
+    argv = [exe, '-iwad', os.environ.get('AET_IWAD', 'doom2.wad'),
+            '-file', TC] + (['-file', mapset] if mapset else []) + ['-file', pk3, '-file', ov,
             '-config', os.path.join(SCRATCH, 'scratch.ini'),
             '-nosound', '-nomusic',
             '+vid_fullscreen', '0', '+vid_defwidth', '320', '+vid_defheight', '240',

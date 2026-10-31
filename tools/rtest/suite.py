@@ -41,7 +41,7 @@ def one(gun):
         '10:god; show_messages 0; rsq_reload 1; aet_empty 1; aet_gun ' + gun,
         '40:rsrtest_script 7',
         '80:+reload',
-        '84:-reload',
+        '100:-reload',   # held 20 tics: a 4-tic press can fall between the M4A3's, Merc's and Yutani rifle's WRF_ALLOWRELOAD tics (rig 2026-10-31: reload never started)
         '450:echo END',
     ])
     text = open(log, encoding='utf-8', errors='replace').read()

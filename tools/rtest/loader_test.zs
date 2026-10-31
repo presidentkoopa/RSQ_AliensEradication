@@ -21,6 +21,10 @@
 //               7  THE CAGE: damage the player and watch AE_LoaderWorn.ModifyDamage take its
 //                  share, plus the speed factor, which is the whole "it is heavy" premise.
 //
+//               9  THE OWNER'S RUN (2026-10-31): step 80 units off doom2 MAP01's starting ledge,
+//                  an imp at the claw (72 out), claw shut on it, held ~2 s (run with
+//                  ae_loader_crush_tics 70), crushed; then a second imp and the off arm's attack.
+//
 // Every script reports the three psprite LAYERS first, because if the arms were never created
 // then every action below still "works" and draws nothing -- which is the failure mode that
 // would survive all of the above.
@@ -112,6 +116,24 @@ class AET_LoaderTest : EventHandler
 			Console.Printf("LOADER monster %s", subject ? subject.GetClassName() : 'NONE');
 		}
 
+		// 9 (owner 2026-10-31): an imp in reach, grab it, hold it a while, crush it; then a second
+		// imp and the off arm's attack on it. The run sets ae_loader_crush_tics 70 so the hold
+		// lasts two seconds before the crush lands.
+		// doom2 MAP01 starts the player on a ledge: step ~2 m forward first (owner, 2026-10-31)
+		if (s == 9 && n == 0)
+		{
+			mo.SetOrigin(mo.pos + (cos(mo.angle), sin(mo.angle), 0) * 80.0, false);
+			Console.Printf("LOADER moved 80 units forward (off the ledge)");
+		}
+		if (s == 9 && (n == 20 || n == 150))
+		{
+			Vector3 at = mo.pos + (cos(mo.angle), sin(mo.angle), 0) * (n == 20 ? 72.0 : 90.0);	// the claw sits ae_loader_reach (72) out
+			subject = Actor.Spawn('DoomImp', at, NO_REPLACE);
+			if (subject)
+				subject.Speed = 0;		// it still turns, attacks and feels pain; it just does not wander out of reach
+			Console.Printf("LOADER monster %s spawned t%d at %.0f units", subject ? subject.GetClassName() : 'NONE', t, n == 20 ? 72.0 : 90.0);
+		}
+
 		// a barrel within the claw's reach for grab / throw / crush
 		if ((s == 4 || s == 5 || s == 8) && n == 1 && s != 8)
 		{
@@ -148,6 +170,8 @@ class AET_LoaderTest : EventHandler
 							// crush cannot fire and end the test early
 		if (s == 6)
 			want |= 8;				// main alt with nothing held: the ram
+		if (s == 9)
+			want |= (n >= 25 && n < 130) ? 4 : (n >= 160 && n < 250) ? 1 : 0;	// claw shut, then off arm attack
 		let bc = CVar.FindCVar('aet_buttons');
 		if (bc && bc.GetInt() != want)
 			bc.SetInt(want);
@@ -176,6 +200,16 @@ class AET_LoaderTest : EventHandler
 				b ? String.Format("%d", b.Frame) : "-", Cnt('AE_LoaderCageSpark'));
 		}
 
+		if (s == 9 && n >= 20 && n < 30 && subject)
+			Console.Printf("LOADER early t%d imp pos %.0f %.0f %.0f vel %.1f %.1f %.1f floor %.0f me %.0f %.0f %.0f", t,
+				subject.pos.x, subject.pos.y, subject.pos.z, subject.vel.x, subject.vel.y, subject.vel.z, subject.floorz, mo.pos.x, mo.pos.y, mo.pos.z);
+		if (s == 9 && (n % 5) == 0 && subject)
+		{
+			Vector3 cp = AE_LoaderHandler.ClawPoint(mo, false);
+			Console.Printf("LOADER monster t%d  %s  hp %d  state tics %d  vel %.1f  dist %.0f  claw-to-it %.0f (grab reach %.0f)", t, subject.GetClassName(),
+				subject.health, subject.tics, subject.vel.Length(), subject.Distance3D(mo), (subject.pos - cp).Length(),
+				AE_LoaderHandler.F2('ae_loader_grab_radius', 48.0) + subject.radius);
+		}
 		if (s == 8 && (n % 4) == 0 && subject)
 			Console.Printf("LOADER monster t%d  state tics %d  frame %d  vel %.1f  hp %d",
 				t, subject.tics, subject.frame, subject.vel.Length(), subject.health);

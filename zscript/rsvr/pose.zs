@@ -37,14 +37,16 @@
 // (hw_openxrdevice.cpp:595/608), so Z is multiplied back here, once, at the point of storage.
 class RSVR_Pose play
 {
-	const N = 8;			// samples kept per hand, about a quarter second
+	const RING = 8;		// samples kept per hand, about a quarter second. NOT 'N': ZScript names are
+						// case-blind, so the local `int n = PlayerNumber()` hid it and `% N` was % 0 for
+						// player 0 -- a VM abort on the first tic of every map in VR (2026-10-30, rig).
 
-	// flat arrays: [(player * 2 + hand) * N + slot]. Vector arrays are not allowed in ZScript
+	// flat arrays: [(player * 2 + hand) * RING + slot]. Vector arrays are not allowed in ZScript
 	// (the trap table: "Array<Vector3> is not allowed. Use three Array<double>"), and these are
 	// fixed-size anyway.
-	private Vector3 pt[MAXPLAYERS * 2 * N];		// hand, IN THE PAWN'S FRAME, cm
-	private Vector3 org[MAXPLAYERS * 2 * N];	// where the pawn was, map units
-	private int stamp[MAXPLAYERS * 2 * N];		// Level.maptime of the sample
+	private Vector3 pt[MAXPLAYERS * 2 * RING];		// hand, IN THE PAWN'S FRAME, cm
+	private Vector3 org[MAXPLAYERS * 2 * RING];	// where the pawn was, map units
+	private int stamp[MAXPLAYERS * 2 * RING];		// Level.maptime of the sample
 	private int at[MAXPLAYERS * 2];				// newest slot
 	private int got[MAXPLAYERS * 2];			// how many samples are real
 
@@ -102,12 +104,12 @@ class RSVR_Pose play
 		if (n < 0 || n >= MAXPLAYERS)
 			return;
 		int i = n * 2 + hand;
-		at[i] = (at[i] + 1) % N;
-		int s = i * N + at[i];
+		at[i] = (at[i] + 1) % RING;
+		int s = i * RING + at[i];
 		pt[s] = ToBody(mo, world);
 		org[s] = mo.pos;
 		stamp[s] = mo.Level.maptime;
-		if (got[i] < N)
+		if (got[i] < RING)
 			got[i]++;
 	}
 
@@ -119,7 +121,7 @@ class RSVR_Pose play
 		int i = n * 2 + hand;
 		if (back < 0 || back >= got[i])
 			return false;
-		int s = i * N + ((at[i] - back) % N + N) % N;
+		int s = i * RING + ((at[i] - back) % RING + RING) % RING;
 		sPt = pt[s];
 		sOrg = org[s];
 		sTic = stamp[s];

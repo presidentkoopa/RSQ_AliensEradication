@@ -2,3 +2,4 @@
 __pycache__/
 tools/rtest/aet/
 !pk3/AliensVR_Weapons.pk3
+tools/rig/runs/

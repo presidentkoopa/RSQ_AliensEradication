@@ -213,31 +213,53 @@ Model AEBerserk_3D
 	FrameIndex CSAW P 0 0
 }
 
-// THE WORN LOADER'S ROTATING BEACON (2026-10-23, step 2 of
-// docs/DESIGN_2026-10-23_power_loader.md).
+// THE CAB AS WORLD ACTORS (2026-11-08; docs/REVIEW_2026-11-08_power_loader.md §5 item 1).
+// The 2026-10-23 cage and beacon were psprite layers bound to AE_LoaderWorn, and in VR a psprite
+// layer is positioned from a CONTROLLER (hw_weapon.cpp:256; RenderHUDModel models.cpp:219-226), so
+// the cab rotated about the operator's right wrist. They are AE_LoaderCab and AE_LoaderLamp now:
+// +NOINTERACTION actors placed every tic at the pawn by AE_LoaderHandler.PlaceCab (zscript/ae/loader.zs),
+// the pattern RSQ_UBQSeries/TacticalRig's helmet and torso proved in the owner's headset.
 //
-// loader_lamp.md3 is one surface named `loader_alarm` and it already ships -- it was only ever
-// drawn on the PICKUP blocks above, so the loader on the floor had a beacon and the one you
-// wear had none. Bound to AE_LoaderWorn rather than to Loader_3D so the layer's caller is an
-// inventory item: that keeps it on the main controller (models.cpp:221 sends a layer to the off
-// controller only when its caller is the OffhandWeapon) and lets ZScript own the state.
-//
-// Reusing the skin NAME loader_lamp.jpg keeps the existing brightmap (gldefs.txt:13) for free,
-// so the lamp glows with no GLDEFS change at all.
-//
-// The third Offset number is the one that moves it UP (models.cpp RenderHUDModel feeds matrix-y
-// from Offset's THIRD value and matrix-z from its SECOND). The lamp mesh is authored at z
-// 251..267 -- it belongs to the full pickup model whose origin is at the feet -- while the held
-// mesh's roof grate sits at z 80..95, so it has to come down about 171 units. -181 is a
-// measured starting value and WANTS THE OWNER'S EYE; it is one number in this block.
-Model AE_LoaderWorn
+// SCALE. loader_cage.md3 keeps mechloader.md3's coordinates: centimetres, origin = the operator,
+// x forward, z up. On the WORLD path a model unit is a map unit, so the block carries the
+// cm -> map unit scale: 1 m = vr_vunits_per_meter (34). UNIFORM on purpose: models.cpp
+// RenderModel already scales a non-voxel model's height by 1 / pixelstretch at the end of its
+// transform ("consider the pixel stretching"), so a model authored true renders true; only the
+// actor's POSITION height is in stretched units (PlaceCab() divides the metres by pixelstretch
+// there). The ACTOR declares Scale 1.0, because the actor's scale multiplies this one
+// (models.cpp:82-84).
+// No x mirror: the cage is symmetric, and the arms are not drawn here.
+Model AE_LoaderCab
+{
+	Path "Models\Weapons\mech"
+	Model 0 "loader_cage.md3"
+	// surfaces in the order tools/carve_loader.py writes them: 0 MechGuard.001 (the frame),
+	// 1 MechCover (the 48 x 30 cm roof grate)
+	SurfaceSkin 0 0 "loader_upper.png"
+	SurfaceSkin 0 1 "loader_grate.png"
+
+	Scale 0.34 0.34 0.34
+	Offset 0.0 0.0 0.0
+
+	FrameIndex AELC A 0 0
+}
+
+// THE BEACON on the cab's roof. loader_lamp.md3 (one surface, loader_alarm) is authored at
+// z 251..267 of the PICKUP model, whose origin is at the feet; the cab's roof grate tops out at
+// z 95 and the frame at 102, so the lamp comes down 150 model units (cm) to sit on the frame.
+// Offset is in model units, applied before Scale (translate(offset / scale) then scale); the
+// THIRD number is vertical. Reusing the skin NAME loader_lamp.jpg keeps the brightmap
+// (gldefs.txt:13) for free. It spins by its actor angle (PlaceCab() advances it); its light is
+// attached to the actor itself (A_AttachLight on a world actor is the ordinary case).
+// -150 WANTS THE OWNER'S EYE; it is one number.
+Model AE_LoaderLamp
 {
 	Path "Models\Weapons\mech"
 	Model 0 "loader_lamp.md3"
 	Skin 0 "loader_lamp.jpg"
 
-	Scale -1.0 1.0 1.0
-	Offset -10.0 40.0 -181.0
+	Scale 0.34 0.34 0.34
+	Offset 0.0 0.0 -150.0
 
 	FrameIndex AELB A 0 0
 }
@@ -264,27 +286,6 @@ Model AE_LoaderCageSpark
 	FrameIndex AESP B 0 1
 	FrameIndex AESP C 0 2
 	FrameIndex AESP D 0 3
-}
-
-// 2026-10-23 THE CAB CAGE, over the operator's head. MechGuard.001 + MechCover carved out of
-// mechloader.md3 with their original coordinates, so it takes the ARMS' offset, not the
-// beacon's -- both come off the same mesh and the held mesh's origin is the operator.
-Model AE_LoaderWorn
-{
-	Path "Models\Weapons\mech"
-	Model 0 "loader_cage.md3"
-	// TWO surfaces, in the order tools/carve_loader.py writes them:
-	//   0  MechGuard.001  1245 verts  the cab frame around you
-	//   1  MechCover        18 verts  the 48 x 30 cm roof grate over your head
-	// The carve emitted the frame alone at first, so the cab had no roof. Checked against the
-	// mesh after re-carving, not assumed.
-	SurfaceSkin 0 0 "loader_upper.png"
-	SurfaceSkin 0 1 "loader_grate.png"
-
-	Scale -1.0 1.0 1.0
-	Offset -10.0 40.0 -10.0
-
-	FrameIndex AELC A 0 0
 }
 
 Model AE_LoaderArms

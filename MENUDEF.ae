@@ -77,8 +77,14 @@ OptionMenu "AE_LoaderOptions"
 {
 	Title "POWER LOADER"
 	Slider "Walk Speed", "ae_loader_speed", 0.10, 1.00, 0.05, 2
+	Slider "Gravity", "ae_loader_gravity", 0.5, 3.0, 0.1, 1
 	Option "Cab Cage", "ae_loader_cage", "OnOff"
 	Slider "Cage Absorbs", "ae_loader_cage_absorb", 0.0, 0.9, 0.05, 2
+	Slider "Cab Height (m)", "ae_loader_cab_height", 0.8, 2.5, 0.05, 2
+	Slider "Cab Back (m)", "ae_loader_cab_back", -0.5, 1.0, 0.05, 2
+	Slider "Cab Turn Rate (deg/tic)", "ae_loader_cab_turn", 0.5, 15.0, 0.5, 1
+	Option "Claw Where Jaws Are Drawn", "ae_loader_claw_mesh", "OnOff"
+	Slider "Claw Reach Scale", "ae_loader_claw_scale", 0.5, 1.5, 0.05, 2
 	StaticText " "
 	Slider "Swing Damage", "ae_loader_swing_damage", 0, 300, 10, 0
 	Slider "Swing Knockback", "ae_loader_swing_push", 0, 60, 2, 0

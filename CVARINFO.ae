@@ -155,8 +155,8 @@ user float ae_loader_hum = 0.0;				// hydraulic hum volume. 0 until the pack HAS
 user float ae_loader_hum_ref = 90.0;		// arm speed that reaches full hum pitch
 user float ae_loader_clunk = 18.0;			// arm speed above which a hard stop clunks, 0 = off
 user float ae_loader_haptic = 1.0;			// kick that controller on a hard stop, 0 = off
-user float ae_loader_beacon = 1.0;			// the rotating orange beacon, 0 = off
-user float ae_loader_beacon_rpm = 90.0;		// how fast it sweeps
+server float ae_loader_beacon = 1.0;		// the rotating orange beacon, 0 = off. SERVER since 2026-11-08: it is a world actor now (playsim)
+server float ae_loader_beacon_rpm = 90.0;	// how fast it sweeps (server: the lamp actor's angle is playsim)
 // 2026-10-23 the cab cage over the operator's head, and the share of a hit it eats. SERVER,
 // because the absorb changes how much damage lands and every machine must agree. The code
 // caps it at 0.9 so a blow is never reduced to nothing.
@@ -178,7 +178,16 @@ user float ae_loader_overshoot = 0.0;		// how far past the stop they carry
 user float ae_loader_claw_tics = 7.0;		// tics for the claw to close fully
 user float ae_loader_swing = 14.0;			// claw speed that counts as a swing, 0 = off
 user float ae_loader_swing_gap = 12.0;		// tics between swings
-server float ae_loader_reach = 72.0;		// how far the claw is from your hand, map units
+server float ae_loader_reach = 72.0;		// the OLD claw point: this far straight along the hand, map units (ae_loader_claw_mesh 0)
+// 2026-11-08 (docs/REVIEW_2026-11-08_power_loader.md 2.3, 2.4, §5): the claw point is built from the hand's
+// frame and the MESH's measured jaws (loader.zs ClawPoint), the cab is a world actor at the pawn, gravity is
+// the token's. All server: every one of them places or moves something in the playsim.
+server float ae_loader_claw_mesh = 1.0;		// 1 = the claw point is where the drawn jaws are; 0 = the old reach above (A/B)
+server float ae_loader_claw_scale = 1.0;	// scales the mesh offsets (1.52 m fwd, 1.16 m out) if the headset says the jaws sit elsewhere
+server float ae_loader_gravity = 1.0;		// the worn loader's gravity (was A_SetGravity(3) in the DECORATE: fast falls, bad in VR)
+server float ae_loader_cab_height = 1.8;	// metres above the floor the cab's origin sits (roof grate +0.8..0.95 m above that; 1.5 had the grate at eye level)
+server float ae_loader_cab_back = 0.25;		// metres the cab's origin (the cage's rear edge) sits behind the pawn: how far into the cab you stand
+server float ae_loader_cab_turn = 3.0;		// degrees per tic the cab eases round toward where you look (walking, or a long look)
 server float ae_loader_claw_radius = 40.0;	// how wide a swing reaches
 server float ae_loader_swing_damage = 100.0;		// damage a swing does (owner 2026-10-31: 100, knocked aside, stunned)
 server float ae_loader_swing_push = 18.0;	// how hard a swing knocks a 100-mass body aside

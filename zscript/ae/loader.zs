@@ -21,6 +21,26 @@
 // would move differently on different machines. Movement is playsim, so it is server.
 // The sound and haptic cvars below are user, because those are presentation.
 
+// 2026-11-08 (owner: "you have autonomy to upgrade and tighten our PowerLoader in accordance with
+// what the engine teardown allows"; docs/REVIEW_2026-11-08_power_loader.md is the list):
+//   * THE CAGE AND THE BEACON ARE WORLD ACTORS NOW (AE_LoaderCab, AE_LoaderLamp), the pattern
+//     RSQ_UBQSeries/TacticalRig's helmet and torso proved in the owner's headset (vest.zs:74-98):
+//     a psprite layer in VR rides a CONTROLLER (RenderHUDModel takes the hand transform for every
+//     HUD model, hw_weapon.cpp:256 / models.cpp:221; the body-anchored branch is unreachable in
+//     VR), so the old cage turned about the owner's right wrist. The cab is placed every tic at
+//     the PAWN, floor-anchored, with a yaw of its own that follows the body, not the head. Pure
+//     playsim: every player sees everyone's cab.
+//   * The claw point is built from the hand's frame and the MESH's measured jaws (ClawPoint),
+//     not "72 units straight ahead": the jaws are 1.5 m ahead and 1.1 m OUTBOARD of the hand.
+//   * A held thing stays SOLID (no bTHRUACTORS): hitscan skips THRUACTORS (p_map.cpp:4673-4700),
+//     so a held Alien stopped no bullets. Carry() keeps it off the pawn instead.
+//   * The DECORATE's own attacks are blanked (mechloader.txt): a trigger press was the TC's
+//     500-damage face-punch AND the claw.
+//   * Gravity is the token's (ae_loader_gravity, 1.0), not A_SetGravity(3) in Select: triple
+//     gravity is vertical acceleration the body did not make.
+//   * Footstep quakes are skipped while r_quakeintensity > 0 (camera shake per stride in VR).
+//   * Boom layers do not bob. Dead fields and F() gone.
+
 // Layer ids. Verified clean against every id the pack uses: 2100, 2101, 2102-2104,
 // 2120-2123, 2130, 2200, 2201, 2202, 2203, 2210. The 2300 band is untouched.
 class AE_LoaderLayers abstract
@@ -31,13 +51,43 @@ class AE_LoaderLayers abstract
 	// left arm on RSQ_Hands' own free-hand layer (2200) with the AEArmL state. A
 	// harness that checked 2211 reported "no off arm" on a loader that has one, and
 	// that reached the owner as a pack bug. A constant nobody reads is worse than none.
-	const BEACON   = 2304;
-	// 2026-10-23 the cab cage over the operator's head. The design hangs this on the body
-	// frame (step 7), but the owner cut the body and the legs, so it goes on a psprite layer
-	// beside the beacon instead -- which it can, because loader_cage.md3 was carved out of
-	// mechloader.md3 KEEPING ITS ORIGINAL COORDINATES, and the held mesh's origin is the
-	// operator. Same mesh origin as the arms means the same MODELDEF Offset places it.
-	const CAGE     = 2305;
+	// 2304 (BEACON) and 2305 (CAGE) were the psprite cab, 2026-10-23 to 2026-11-08. Gone: a
+	// psprite layer rides a controller in VR, so the cab turned with the right wrist. The cab is
+	// AE_LoaderCab / AE_LoaderLamp below, world actors at the pawn. The ids stay reserved.
+}
+
+// THE CAB: the cage over the operator's head and the beacon on its roof, as WORLD ACTORS placed
+// every tic at the pawn (AE_LoaderHandler.PlaceCab). RSQ_UBQSeries/TacticalRig's helmet and torso are
+// the proof this holds steady in the headset at 35 Hz (vest.zs:74-98, body.zs). Unlike the
+// helmet it is NOT +ONLYVISIBLEINMIRRORS: the struts are 30 cm either side of your head and the
+// roof is above it, so you are meant to see it. No pitch, no roll: a cab does not nod. Yaw is
+// the handler's cabYaw, which follows the BODY (movement, snap turns, a long look) and never a
+// glance. +INTERPOLATEANGLES and SetOrigin(.., true) so the renderer smooths between tics.
+// Scale 1.0 declared on purpose: the actor's Scale MULTIPLIES the MODELDEF's (models.cpp:82-84;
+// the holster ghosts' 1.2 m crate). The MODELDEF block carries the only scale.
+// Never give these `master` with +MASTERNOSEE: hw_sprites.cpp:832-865 would hide them.
+class AE_LoaderCab : Actor
+{
+	Default
+	{
+		+NOINTERACTION +NOBLOCKMAP +NOGRAVITY +NOTELEPORT +DONTSPLASH +NOTONAUTOMAP
+		+INTERPOLATEANGLES
+		Radius 1; Height 1;
+		Scale 1.0;
+	}
+	States { Spawn: AELC A -1; Stop; }
+}
+
+class AE_LoaderLamp : Actor
+{
+	Default
+	{
+		+NOINTERACTION +NOBLOCKMAP +NOGRAVITY +NOTELEPORT +DONTSPLASH +NOTONAUTOMAP
+		+INTERPOLATEANGLES +BRIGHT
+		Radius 1; Height 1;
+		Scale 1.0;
+	}
+	States { Spawn: AELB A -1; Stop; }
 }
 
 // A SOUND COMES FROM THE THING THAT MAKES IT. "Playing sounds on the player: a metre-long
@@ -135,19 +185,28 @@ class AE_LoaderWorn : Inventory
 		return clamp(f, 0.10, 1.0);
 	}
 
+	// THE MACHINE'S WEIGHT UNDER YOUR FEET (2026-11-08). mechloader.txt's Select ran
+	// A_SetGravity(3) -- the one DECORATE line that DID take effect, and in VR a triple-speed
+	// fall is vertical acceleration the body did not make. The token owns gravity now, from a
+	// SERVER cvar (gravity is playsim), default 1.0; Deselect's A_SetGravity(1) is harmless.
+	override void DoEffect()
+	{
+		Super.DoEffect();
+		if (!Owner)
+			return;
+		let cv = CVar.FindCVar('ae_loader_gravity');
+		Owner.Gravity = clamp(cv ? cv.GetFloat() : 1.0, 0.1, 4.0);
+	}
+
+	override void DetachFromOwner()
+	{
+		if (Owner)
+			Owner.Gravity = Owner.Default.Gravity;
+		Super.DetachFromOwner();
+	}
+
 	States
 	{
-	// The rotating orange beacon. The sprite name exists because this state names it -- the
-	// same trick RSQ_CounterSprites uses for the pulse rifle's counter, and the same one the
-	// Doom patch uses for every sprite the TC owns. MODELDEF binds loader_lamp.md3 to this
-	// class and this sprite (modeldef.loader.txt).
-	Beacon:
-		AELB A -1;
-		Stop;
-	// The cab cage. Same trick: the sprite name exists because this state names it.
-	Cage:
-		AELC A -1;
-		Stop;
 	Hidden:
 		TNT1 A -1;
 		Stop;
@@ -205,18 +264,35 @@ class AE_LoaderHandler : EventHandler
 	}
 
 	// --- per-player state. Flat arrays: index [n*2 + hand], hand 0 = main, 1 = off. -------
-	Vector3 handPrev[MAXPLAYERS * 2];
+	// (handPrev, bodyPrev, yawPrev, hadPose removed 2026-11-08: the pose history replaced them
+	// on 10-31 and nothing read them since.)
 	double  spRing[MAXPLAYERS * 2 * 3];		// the last three single-tic speeds
 	double  spWas[MAXPLAYERS * 2];			// last tic's chosen speed, for the clunk edge
 	int     quiet[MAXPLAYERS * 2];			// clunk rate limit
-	Vector3 bodyPrev[MAXPLAYERS];
-	double  yawPrev[MAXPLAYERS];
 	double  step[MAXPLAYERS];				// footstep phase accumulator
-	bool    hadPose[MAXPLAYERS];
 	bool    humming[MAXPLAYERS];
 	bool    footR[MAXPLAYERS];
 	Actor   humAt[MAXPLAYERS];		// the hum's carried emitter (on the machine, not the chest)
-	int     quakes[MAXPLAYERS];
+	int     quakes[MAXPLAYERS];		// diagnostic: footsteps actually fired
+
+	// SWING QUIET (2026-11-08, found on the rig): the moment the loader is worn both arms "swung"
+	// (the pose history's first samples read as a jump), and a SNAP TURN swung both arms and
+	// fired a ram -- the pawn's angle and the controllers' world poses land a tic apart, so for
+	// one tic the hand appears to have whipped round the body. Two short quiets, both from
+	// pawn state (deterministic): the first 10 tics worn, and 3 tics after any 20+ degree jump.
+	int     wornFor[MAXPLAYERS];
+	int     turnQuiet[MAXPLAYERS];
+	double  angPrev[MAXPLAYERS];
+	double  vhPrev[MAXPLAYERS];
+	int     grabQuiet[MAXPLAYERS * 2];	// ae_grab was sent every tic a shut empty claw was held; now every 5
+
+	// THE CAB (2026-11-08): the cage and the lamp as world actors, and the cab's own heading.
+	Actor   cab[MAXPLAYERS];
+	Actor   lamp[MAXPLAYERS];
+	double  cabYaw[MAXPLAYERS];			// the machine's heading, degrees
+	double  cabAngPrev[MAXPLAYERS];		// the pawn's angle last tic, to see a snap turn
+	int     cabOffFor[MAXPLAYERS];		// tics the head has been held far round the cab
+	bool    cabPrimed[MAXPLAYERS];
 
 	// STEP 4, MASS THROUGH LAG. A ring of each hand's AIM. Lagging the aim needs no frame
 	// conversion -- the engine already draws the arm at the hand, and a turn added on top via
@@ -241,8 +317,8 @@ class AE_LoaderHandler : EventHandler
 	// NOT 'punch': ZScript identifiers are CASE-INSENSITIVE, so a field punch[] and a
 	// method Punch() are the same name -- "Attempt to redefine 'Punch'". The fifth time
 	// this project has hit it (claw/Claw(), look/Look(), pull/Pull(), held/held).
-	int     punchAt[MAXPLAYERS * 2];
-	int     work[MAXPLAYERS * 2];		// 1 while that boom is welding or burning	// tics left of the arm's punch animation, 0 = at rest
+	int     punchAt[MAXPLAYERS * 2];	// tics left of the arm's punch animation, 0 = at rest
+	int     work[MAXPLAYERS * 2];		// 1 while that boom is welding or burning (Punch() stirs it)
 
 	// STEP 6, GRAB / CARRY / THROW / PIN / CRUSH.
 	bool    ramPrev[MAXPLAYERS * 2];	// alt fire was down last tic
@@ -261,8 +337,9 @@ class AE_LoaderHandler : EventHandler
 	Vector3 clawPrev[MAXPLAYERS * 2];
 	// thrown things, so a thrown body hurts what it lands on
 	Array<Actor> flung;
-	Array<double> flungWas;				// diagnostic: footsteps actually fired
+	Array<double> flungWas;				// each flung thing's speed last tic: a halving is the impact
 	double  spin[MAXPLAYERS];				// beacon yaw, degrees
+	// one cvar reader (F2 was a byte-identical twin until 2026-11-08)
 	static double F(Name n, double def)
 	{
 		let c = CVar.FindCVar(n);
@@ -284,6 +361,15 @@ class AE_LoaderHandler : EventHandler
 
 			bool worn = Worn(mo);
 			Token(mo, worn);
+			wornFor[n] = worn ? min(wornFor[n] + 1, 1000) : 0;
+			if (turnQuiet[n] > 0) turnQuiet[n]--;
+			// a snap turn (the angle jumps 20+), or the TC's LOADUP lifting viewheight 41 -> 61 as
+			// the loader comes up: either reads as both hands whipping round in the pawn's frame for
+			// a tic or two (the rig saw both swing, 2026-11-08). 6 tics: the hand poses can land a
+			// few tics after the turn on a slow renderer; on the headset it is one or two.
+			if (abs(Wrap(mo.angle - angPrev[n])) >= 20.0 || abs(p.viewheight - vhPrev[n]) > 2.0) turnQuiet[n] = 6;
+			angPrev[n] = mo.angle;
+			vhPrev[n] = p.viewheight;
 
 			// ae_loader_debug 3 is a SELF TEST for grab/carry/crush, because grabbing needs
 			// hand poses and a headless run has none. It drops a barrel in front of the
@@ -323,7 +409,7 @@ class AE_LoaderHandler : EventHandler
 					n, p.ReadyWeapon ? p.ReadyWeapon.GetClassName() : 'none',
 					worn, tok ? 1 : 0, RSVR_VRHand.InVR(mo) ? 1 : 0,
 					tok ? tok.GetSpeedFactor() : -1.0,
-					p.FindPSprite(AE_LoaderLayers.BEACON) ? 1 : 0, spin[n], quakes[n],
+					lamp[n] ? 1 : 0, spin[n], quakes[n],
 					p.FindPSprite(AE_LoaderLayers.ARM_MAIN) ? 1 : 0,
 					p.FindPSprite(RSQ_Layers.FREEHAND) ? 1 : 0,
 					held[n * 2] ? held[n * 2].GetClassName() : 'none');
@@ -332,7 +418,7 @@ class AE_LoaderHandler : EventHandler
 			if (!worn || mo.health <= 0)
 			{
 				Hush(mo, n);
-				hadPose[n] = false;
+				PlaceCab(mo, n, false);
 				continue;
 			}
 
@@ -351,15 +437,13 @@ class AE_LoaderHandler : EventHandler
 			}
 
 			Footsteps(mo, n);
-			// The beacon is bolted to the machine, not to your hands: it must NOT sit behind
-			// the "are we in VR" gate below. It was, which is why it never appeared.
-			Beacon(mo, n);
+			// The cab (cage + beacon) is bolted to the machine, not to your hands: world
+			// actors at the pawn, playsim, so it must NOT sit behind the "are we in VR" gate
+			// below -- every machine places every player's cab.
+			PlaceCab(mo, n, true);
 			// Arms() needs no hand DATA -- each layer reaches the right controller purely by
-			// its caller -- so like the beacon it must not sit behind the VR gate below.
+			// its caller -- so like the cab it must not sit behind the VR gate below.
 			Arms(mo, n);
-			// The cage is bolted to the machine too: no hand data, so it goes above the gate
-			// with the beacon and the arms.
-			Cage(mo, n);
 
 			// Everything below reads AttackPos/OffhandPos, which exist only for a local VR
 			// player. Desktop and remote players get the weight and the shake but no arm
@@ -367,22 +451,16 @@ class AE_LoaderHandler : EventHandler
 			if (!RSVR_VRHand.InVR(mo))
 			{
 				Hush(mo, n);
-				hadPose[n] = false;
 				continue;
 			}
 
-			Vector3 body = mo.pos;
-			Vector3 bodyStep = hadPose[n] ? body - bodyPrev[n] : (0, 0, 0);
-			// deltaangle() is not visible from an EventHandler, so wrap it here. We only need
-			// the magnitude, to notice a snap turn.
-			double yawDelta = 0.0;
-			if (hadPose[n])
+			// ae_loader_debug 1: a spark at each computed claw point every 7 tics, so the
+			// headset can see whether the engine's claw is where the drawn jaws are (the
+			// 2026-11-08 ClawPoint builds it from the mesh; this is its check).
+			if (F('ae_loader_debug', 0.0) > 0 && (level.maptime % 7) == 0)
 			{
-				yawDelta = mo.angle - yawPrev[n];
-				while (yawDelta > 180.0)
-					yawDelta -= 360.0;
-				while (yawDelta < -180.0)
-					yawDelta += 360.0;
+				Spark(mo, ClawPoint(mo, false), 0.3);
+				Spark(mo, ClawPoint(mo, true), 0.3);
 			}
 
 			double loud = 0.0;
@@ -397,7 +475,6 @@ class AE_LoaderHandler : EventHandler
 				let pose = RSVR_Pose.Get();
 				if (pose && pose.Delta(mo, h, 1))
 					s = pose.dStep.Length() / (pose.dSecs * 35.0);
-				handPrev[i] = RSVR_VRHand.HandPos(mo);
 
 				// fastest of the last three tics, so a flick counts like a sweep
 				spRing[i * 3 + 2] = spRing[i * 3 + 1];
@@ -425,10 +502,6 @@ class AE_LoaderHandler : EventHandler
 				}
 				loud = max(loud, best);
 			}
-
-			bodyPrev[n] = body;
-			yawPrev[n] = mo.angle;
-			hadPose[n] = true;
 
 			Hum(mo, n, loud);
 			ArmLag(mo, n);
@@ -473,6 +546,12 @@ class AE_LoaderHandler : EventHandler
 		step[n] -= gap;
 		double q = F('ae_loader_quake', 1.0);
 		if (q <= 0)
+			return;
+		// r_quakeintensity is 0 by default "for VR" (r_utility.cpp:116) and the stride rumble
+		// relies on that: a user who raised it would get camera shake on every step, the one
+		// thing a VR machine must never do. The stride quake is skipped for them; the brief
+		// hit rumbles (Rumble) stay. The cvar is readable from script, not writable (W8).
+		if (F('r_quakeintensity', 0.0) > 0.0)
 			return;
 		int inten = int(clamp(1.0 + sp / 12.0, 1.0, 3.0) * q);
 		if (inten > 0)
@@ -524,94 +603,141 @@ class AE_LoaderHandler : EventHandler
 		e.A_SoundPitch(CHAN_7, 1.0 + clamp((armSpeed - 6.0) / ref, 0.0, 0.3));
 	}
 
-	// THE ROTATING BEACON. The mesh (loader_lamp.md3, one surface named loader_alarm), its
-	// brightmap (gldefs.txt:13) and a PointLight (gldefs.txt:18) all already ship -- and all
-	// three are attached to `Frame CSAWP`, the PICKUP's sprite frame. So the loader lying on
-	// the floor has a glowing spinning beacon and the one you are wearing has nothing.
+	// THE CAB, 2026-11-08: the cage over the operator's head and the rotating beacon on its roof,
+	// as WORLD ACTORS at the pawn. Why not psprite layers: in VR every psprite layer, model or
+	// sprite, is positioned from a CONTROLLER's transform (hw_weapon.cpp:256 chooses the hand by
+	// the layer's caller; RenderHUDModel takes the same transform, models.cpp:219-226; the
+	// body-anchored branch at :229-234 is unreachable because GetWeaponTransform always succeeds
+	// in VR). So the 2026-10-23 cab, called by AE_LoaderWorn, sat on the MAIN controller and a
+	// 61 cm cage 69 cm from the face rotated about the owner's wrist. The pattern that works is
+	// RSQ_UBQSeries/TacticalRig's helmet and torso (vest.zs:74-98): a +NOINTERACTION actor,
+	// SetOrigin(.., true) every tic, angle set every tic, proven steady in the owner's headset.
 	//
-	// MDL_ROTATING is world-path only (models.cpp:116-128); RenderHUDModel has no rotation
-	// handling at all. The way to turn a HUD model from play is psp.x, which hw_weapon.cpp:108
-	// reads back as model yaw in QUARTER degrees. oldx must be carried by hand: nothing in the
-	// playsim advances it (p_pspr.h:114 is its only writer), so leaving it pins the beacon's
-	// interpolation to zero and it judders instead of spinning. This pack has made that exact
-	// mistake once already, in the dual-wield recoil follow.
+	// WHERE. The cage mesh keeps mechloader.md3's coordinates: origin = the operator, x forward,
+	// z up, centimetres; frame x -0.8..69, y +-30.7, z -2..102 (the roof grate at 80..95). It is
+	// bolted to the MACHINE, which stands on the floor, so its origin is the pawn's floor
+	// position + ae_loader_cab_height metres (1.8: roof grate at 2.6-2.75 m; a standing player's
+	// VR eye is his real eye height + the 0.7 m the TC's LOADUP raises viewheight by, so ~2.3 m,
+	// a head's height under the grate. 1.5 put the grate AT the eyes on the rig, 2026-11-08). Floor-anchored and in metres is deliberate: HmdPosition is local
+	// to one machine and the cab must place identically everywhere. The MODELDEF carries the
+	// cm -> map unit scale (0.34 horizontal, 0.34 / 1.2 vertical: vr_vunits_per_meter 34 and
+	// pixelstretch). The lamp mesh is authored at z 251..267 of the PICKUP model (origin at the
+	// feet); its MODELDEF Offset brings it down onto the roof.
 	//
-	// The light goes on the PAWN, not the layer -- a psprite has no sprite frame for GLDEFS to
-	// key on, which is the diagnosis of why the worn loader never lit anything. Because HUD
-	// models gather light from around the player (hw_weapon.cpp:988), a light on the pawn
-	// washes orange across the arms, which is most of the effect.
-	// THE CAB CAGE. Shown while the loader is worn and taken away when it is not. It needs no
-	// hand data and no body frame -- the mesh keeps mechloader.md3's own coordinates and that
-	// mesh's origin is the operator, so the layer simply draws it where it already belongs.
-	void Cage(PlayerPawn mo, int n)
+	// HEADING. The cab must not turn with a glance (pmo.angle IS the headset's yaw), and the
+	// playsim has no body tracker and no controller yaws for a remote player. So, from pawn
+	// state only (deterministic on every machine): a SNAP turn or a teleport (the angle jumps
+	// 20+ degrees in one tic -- a head cannot) carries the cab by exactly that; while WALKING
+	// the cab eases toward where you look (you walk where you look), at most ae_loader_cab_turn
+	// degrees a tic; standing still, a head held 45+ degrees off the cab for 1.5 s eases it
+	// round (TacticalRig's RoomFollow rule, body.zs:128); and past 100 degrees it always eases,
+	// because nobody sits backwards in a cab. Smooth stick turns look like head turns to the
+	// playsim and are caught by the walking and 1.5 s rules.
+	void PlaceCab(PlayerPawn mo, int n, bool on)
 	{
-		let p = mo.player;
-		let psp = p.FindPSprite(AE_LoaderLayers.CAGE);
-		bool on = F('ae_loader_cage', 1.0) > 0 && mo.FindInventory('AE_LoaderWorn');
+		on = on && F('ae_loader_cage', 1.0) > 0;
+		bool lampOn = on && F('ae_loader_beacon', 1.0) > 0;
 		if (!on)
 		{
-			if (psp)
-				p.SetPsprite(AE_LoaderLayers.CAGE, null);
+			if (cab[n]) { cab[n].Destroy(); cab[n] = null; }
+			if (lamp[n]) { lamp[n].A_RemoveLight('aeloaderbeacon'); lamp[n].Destroy(); lamp[n] = null; }
+			mo.A_RemoveLight('aeloaderbeacon');	// the 10-23 pawn light, if a save carried it
+			cabPrimed[n] = false;
 			return;
 		}
-		if (psp)
-			return;
-		let worn = mo.FindInventory('AE_LoaderWorn');
-		p.SetPsprite(AE_LoaderLayers.CAGE, worn.FindState('Cage'), false, worn);
-		psp = p.FindPSprite(AE_LoaderLayers.CAGE);
-		if (!psp)
-			return;
-		// it does not bob and it does not swing with the gun: it is part of the cab
-		psp.bAddWeapon = false;
-		psp.bAddBob = false;
-		psp.y = WEAPONTOP;
-		psp.oldy = psp.y;
-		psp.x = 0;
-		psp.oldx = 0;
-	}
 
-	void Beacon(PlayerPawn mo, int n)
-	{
-		let p = mo.player;
-		bool on = F('ae_loader_beacon', 1.0) > 0;
-		let psp = p.FindPSprite(AE_LoaderLayers.BEACON);
-
-		if (!on)
+		// the heading
+		double a = mo.angle;
+		if (!cabPrimed[n])
 		{
-			if (psp)
-				p.SetPsprite(AE_LoaderLayers.BEACON, null);
-			mo.A_RemoveLight('aeloaderbeacon');
-			return;
+			cabYaw[n] = a;
+			cabAngPrev[n] = a;
+			cabOffFor[n] = 0;
+			cabPrimed[n] = true;
 		}
-
-		let worn = mo.FindInventory('AE_LoaderWorn');
-		if (!worn)
-			return;
-
-		if (!psp)
+		double jump = Wrap(a - cabAngPrev[n]);
+		cabAngPrev[n] = a;
+		if (abs(jump) >= 20.0)
+			cabYaw[n] = Wrap(cabYaw[n] + jump);		// snap turn / teleport: the whole room turned
+		double off = Wrap(a - cabYaw[n]);
+		double rate = clamp(F('ae_loader_cab_turn', 3.0), 0.5, 30.0);
+		bool walking = mo.vel.xy.Length() > 1.0;
+		if (walking)
+			cabOffFor[n] = 0;
+		else if (abs(off) > 45.0)
+			cabOffFor[n]++;
+		else
+			cabOffFor[n] = 0;
+		bool ease = walking || cabOffFor[n] > int(1.5 * TICRATE) || abs(off) > 100.0;
+		if (ease)
 		{
-			p.SetPsprite(AE_LoaderLayers.BEACON, worn.FindState('Beacon'), false, worn);
-			psp = p.FindPSprite(AE_LoaderLayers.BEACON);
-			if (!psp)
-				return;
-			psp.bAddWeapon = false;
-			psp.bAddBob = false;
-			psp.y = WEAPONTOP;
-			psp.oldy = psp.y;
-			psp.x = 0;
-			psp.oldx = 0;
-			spin[n] = 0;
-			mo.A_AttachLight('aeloaderbeacon', DynamicLight.PointLight, 0xFF7814,
-			                 int(F('ae_loader_beacon_radius', 96.0)), 0, 0, (0, 0, 40));
+			if (abs(off) <= rate)
+			{
+				cabYaw[n] = a;
+				if (!walking) cabOffFor[n] = 0;
+			}
+			else
+				cabYaw[n] = Wrap(cabYaw[n] + (off > 0 ? rate : -rate));
 		}
 
-		// 90 rpm = 540 deg/s = 15.43 deg per tic. psp.x is yaw in quarter-degrees.
-		double rpm = clamp(F('ae_loader_beacon_rpm', 90.0), 0.0, 600.0);
-		spin[n] = (spin[n] + rpm * 6.0 / TICRATE) % 360.0;
-		psp.oldx = psp.x;
-		psp.x = spin[n] * 4.0;
-	}
+		// the place: floor-anchored, metres up, in the cab's own heading
+		double ps = mo.Level.pixelstretch;
+		if (ps <= 0) ps = 1.2;
+		double vu = F('vr_vunits_per_meter', 34.0);
+		if (vu <= 0) vu = 34.0;
+		double up = clamp(F('ae_loader_cab_height', 1.8), 0.3, 3.0) * vu / ps;
+		// the cage mesh runs x -0.8..69 from its origin, i.e. the operator sits at its REAR edge; with
+		// the origin on the pawn the rear member passed through the head (rig frame, 2026-11-08). The
+		// cab goes ae_loader_cab_back metres BEHIND the pawn along its own heading (0.25: the head is
+		// a quarter of the way in, the frame's front 44 cm ahead of the face).
+		double back = clamp(F('ae_loader_cab_back', 0.25), -0.5, 1.0) * vu;
+		Vector3 at = (mo.pos.x - cos(cabYaw[n]) * back, mo.pos.y - sin(cabYaw[n]) * back, mo.floorz + up);
 
+		if (!cab[n])
+		{
+			cab[n] = Actor.Spawn('AE_LoaderCab', at, ALLOW_REPLACE);
+			if (cab[n])
+			{
+				cab[n].target = mo;
+				cab[n].angle = cabYaw[n];
+				cab[n].SetOrigin(at, false);		// no interpolation from where it was spawned
+			}
+		}
+		if (cab[n])
+		{
+			cab[n].SetOrigin(at, true);
+			cab[n].angle = cabYaw[n];
+		}
+
+		// the beacon: on the roof, spinning on its own; its light comes from IT (a light on a
+		// world actor is the ordinary case; the 10-23 version had to put it on the pawn because
+		// a psprite has no frame for GLDEFS to key on)
+		if (!lampOn)
+		{
+			if (lamp[n]) { lamp[n].A_RemoveLight('aeloaderbeacon'); lamp[n].Destroy(); lamp[n] = null; }
+			return;
+		}
+		if (!lamp[n])
+		{
+			lamp[n] = Actor.Spawn('AE_LoaderLamp', at, ALLOW_REPLACE);
+			if (lamp[n])
+			{
+				lamp[n].target = mo;
+				lamp[n].SetOrigin(at, false);
+				spin[n] = cabYaw[n];
+				lamp[n].A_AttachLight('aeloaderbeacon', DynamicLight.PointLight, 0xFF7814,
+				                      int(F('ae_loader_beacon_radius', 96.0)), 0, 0, (0, 0, 0));
+			}
+		}
+		if (lamp[n])
+		{
+			// 90 rpm = 540 deg/s = 15.43 deg per tic, about the cab's own origin
+			double rpm = clamp(F('ae_loader_beacon_rpm', 90.0), 0.0, 600.0);
+			spin[n] = Wrap(spin[n] + rpm * 6.0 / TICRATE);
+			lamp[n].SetOrigin(at, true);
+			lamp[n].angle = spin[n];
+		}
+	}
 
 
 	// THE TWO ARMS, one per controller. Which controller a layer lands on is decided purely by
@@ -679,6 +805,8 @@ class AE_LoaderHandler : EventHandler
 			// loader off it is an ordinary hand and its frame is not ours to set
 			if (h == 1 && psp.Sprite != Actor.GetSpriteIndex('AEAL'))
 				continue;
+			if (h == 1 && psp.bAddBob)
+				psp.bAddBob = false;	// hands.zs SetLayer turns bob on when the state changes; the boom does not bob
 			// A PUNCH OVERRIDES THE GRIP POSE: an arm cannot be swinging and holding at the
 			// same time, and the punch is the bigger motion. Sprite frames A..O (0..14) are
 			// the punch; P..U (15..20) are the jaws closing, model frames 21..26, added by
@@ -720,7 +848,9 @@ class AE_LoaderHandler : EventHandler
 			return;
 		}
 		psp.bAddWeapon = false;
-		psp.bAddBob = true;
+		// no bob (2026-11-08): weapon bob on a controller-locked model sways the boom against
+		// the hand that holds it. The cab never bobbed for the same reason.
+		psp.bAddBob = false;
 		psp.y = WEAPONTOP;		// y 0 tilts a HUD model 8 degrees
 		psp.oldy = psp.y;
 	}
@@ -878,6 +1008,8 @@ class AE_LoaderHandler : EventHandler
 		double cut = F('ae_loader_swing', 14.0);
 		if (cut <= 0 || armSpeed < cut || swingQuiet[i] > 0)
 			return;
+		if (wornFor[n] < 10 || turnQuiet[n] > 0)
+			return;		// just put on, or the room just turned: not a swing (rig, 2026-11-08)
 		swingQuiet[i] = int(max(F('ae_loader_swing_gap', 12.0), 1.0));
 		punchAt[i] = swingQuiet[i];		// the boom swings: Arms() plays frames 0..14 over this
 
@@ -909,7 +1041,7 @@ class AE_LoaderHandler : EventHandler
 		ramPrev[i] = down;
 		if (!press || ramQuiet[i] > 0 || held[i])
 			return;
-		if (F('ae_loader_ram', 1.0) <= 0)
+		if (F('ae_loader_ram', 1.0) <= 0 || turnQuiet[n] > 0)
 			return;
 		ramQuiet[i] = int(max(F('ae_loader_ram_gap', 20.0), 1.0));
 
@@ -955,8 +1087,8 @@ class AE_LoaderHandler : EventHandler
 		if (len < 1)
 			return;
 		away /= len;
-		double sp = F2('ae_loader_fling', 42.0);
-		Vector3 v = away * sp + (0, 0, sp * F2('ae_loader_fling_lift', 0.22));
+		double sp = F('ae_loader_fling', 42.0);
+		Vector3 v = away * sp + (0, 0, sp * F('ae_loader_fling_lift', 0.22));
 
 		clawPrev[i] = pt;
 		clawShut[i] = 0.0;			// the claw opens to let it go
@@ -1035,7 +1167,7 @@ class AE_LoaderHandler : EventHandler
 	// movement both); its velocity is kept, so a shove lands when the freeze ends.
 	static void HitStop(Actor t, int tics)
 	{
-		double k = F2('ae_hitstop', 1.0);
+		double k = F('ae_hitstop', 1.0);
 		if (!t || t.player || t.health <= 0 || k <= 0)
 			return;
 		t.freezetics = max(int(t.freezetics), int(tics * k + 0.5));
@@ -1047,7 +1179,7 @@ class AE_LoaderHandler : EventHandler
 	// hand is the left controller.
 	static void Rumble(PlayerPawn mo, bool off, int inten, int tics)
 	{
-		if (!mo || !mo.player || inten <= 0 || F2('ae_loader_haptic', 1.0) <= 0)
+		if (!mo || !mo.player || inten <= 0 || F('ae_loader_haptic', 1.0) <= 0)
 			return;
 		let cs = CVar.GetCVar('vr_control_scheme', mo.player);
 		bool lefty = cs && cs.GetInt() >= 10;
@@ -1067,21 +1199,47 @@ class AE_LoaderHandler : EventHandler
 		t.tics = max(t.tics, tics);
 	}
 
+	// WHERE THE JAWS ARE (2026-11-08). Until now: the hand plus ae_loader_reach (72 map units,
+	// 2.1 m) straight along the hand. The jaws the player SEES are somewhere else: loader_arm_r.md3
+	// through its own MODELDEF block (Scale -1 1 1, Offset -10 40 -10), measured with the kit
+	// (tools/kit gunview, the chain hand_survey.py verified against models.cpp), puts the jaw
+	// centroid at F +152, L -106, U -5 cm from the main controller at rest (jaw tips F 157; the
+	// jaws close to F 146 at frame 26), and the left arm's at F +152, L +126, U -5 in the off
+	// hand's own drawn axes (the +-116 of the mesh, both shifted +10 by the Offset's x). Nearly
+	// a metre to the side of where damage landed. In VR you reach with your own arm and watch
+	// the jaws, so this is the fix that makes the machine feel real rather than a tuning number.
+	//
+	// The point is built the way casings.zs and vreload.zs place model points: F/L/U unit vectors
+	// from HandDir/OffDir (which include the engine's mirror of the off controller, so the left
+	// mesh's own coordinates are used as they are), centimetres -> map units by
+	// vr_vunits_per_meter, heights divided by pixelstretch. ae_loader_claw_mesh 0 gives the old
+	// straight-ahead reach back for an A/B. ae_loader_debug 1 sparks both points every 7 tics.
+	const CLAW_F = 152.0;		// cm forward of the controller, jaw centroid at rest
+	const CLAW_SIDE = 116.0;	// cm outboard (the mesh's own +-116)
+	const CLAW_U = -5.0;		// cm up
+	const CLAW_SHIFT = 10.0;	// the MODELDEF Offset's x, which shifts both arms +10 in L
 	static Vector3 ClawPoint(PlayerPawn mo, bool off)
 	{
 		double ps = mo.Level.pixelstretch;
 		if (ps <= 0)
 			ps = 1.2;
-		Vector3 d = off ? RSVR_VRHand.OffDir(mo, 0, 0, ps) : RSVR_VRHand.HandDir(mo, 0, 0, ps);
 		Vector3 o = off ? mo.OffhandPos : mo.AttackPos;
-		double reach = F2('ae_loader_reach', 72.0);
-		return o + d * reach;
-	}
-
-	static double F2(Name n, double def)
-	{
-		let c = CVar.FindCVar(n);
-		return c ? c.GetFloat() : def;
+		if (F('ae_loader_claw_mesh', 1.0) <= 0)
+		{
+			Vector3 d = off ? RSVR_VRHand.OffDir(mo, 0, 0, ps) : RSVR_VRHand.HandDir(mo, 0, 0, ps);
+			return o + d * F('ae_loader_reach', 72.0);
+		}
+		Vector3 Fw = off ? RSVR_VRHand.OffDir(mo, 0, 0, ps) : RSVR_VRHand.HandDir(mo, 0, 0, ps);
+		Vector3 Lf = off ? RSVR_VRHand.OffDir(mo, 90, 0, ps) : RSVR_VRHand.HandDir(mo, 90, 0, ps);
+		Vector3 Up = off ? RSVR_VRHand.OffDir(mo, 0, 90, ps) : RSVR_VRHand.HandDir(mo, 0, 90, ps);
+		double vu = F('vr_vunits_per_meter', 34.0);
+		if (vu <= 0)
+			vu = 34.0;
+		double scale = clamp(F('ae_loader_claw_scale', 1.0), 0.2, 2.0);
+		double side = (off ? CLAW_SIDE : -CLAW_SIDE) + CLAW_SHIFT;
+		Vector3 w = (Fw * CLAW_F + Lf * side + Up * CLAW_U) * (scale * vu / 100.0);
+		w.z /= ps;
+		return o + w;
 	}
 
 	// Every machine runs this against the same point, so it stays in step.
@@ -1117,7 +1275,7 @@ class AE_LoaderHandler : EventHandler
 			if (held[i])
 				return;
 			Vector3 g = (e.Args[0] / 8.0, e.Args[1] / 8.0, (e.Args[2] >> 1) / 8.0);
-			double rad = F2('ae_loader_grab_radius', 48.0);
+			double rad = F('ae_loader_grab_radius', 48.0);
 			Actor best = null;
 			double bestd = 1e9;
 			let git = BlockThingsIterator.CreateFromPos(g.x, g.y, g.z, 0, rad, false);
@@ -1164,9 +1322,9 @@ class AE_LoaderHandler : EventHandler
 			if (len < 1)
 				return;
 			away /= len;
-			double rad = F2('ae_loader_ram_radius', 56.0);
-			int dmg = int(F2('ae_loader_ram_damage', 60.0));
-			double push = F2('ae_loader_ram_push', 26.0);
+			double rad = F('ae_loader_ram_radius', 56.0);
+			int dmg = int(F('ae_loader_ram_damage', 60.0));
+			double push = F('ae_loader_ram_push', 26.0);
 			bool any = false;
 			let it = BlockThingsIterator.CreateFromPos(pt.x, pt.y, pt.z, 0, rad, false);
 			while (it.Next())
@@ -1199,10 +1357,10 @@ class AE_LoaderHandler : EventHandler
 		if (e.Name == "ae_arc")
 		{
 			Vector3 pt = (e.Args[0] / 8.0, e.Args[1] / 8.0, (e.Args[2] >> 1) / 8.0);
-			double rad = F2('ae_loader_arc_radius', 44.0);
-			int dmg = int(F2('ae_loader_arc_damage', 26.0));
-			int chain = int(clamp(F2('ae_loader_arc_chain', 3.0), 1.0, 8.0));
-			double creep = F2('ae_loader_arc_jump', 72.0);
+			double rad = F('ae_loader_arc_radius', 44.0);
+			int dmg = int(F('ae_loader_arc_damage', 26.0));
+			int chain = int(clamp(F('ae_loader_arc_chain', 3.0), 1.0, 8.0));
+			double creep = F('ae_loader_arc_jump', 72.0);
 
 			Spark(mo, pt, 0.55);
 
@@ -1289,7 +1447,7 @@ class AE_LoaderHandler : EventHandler
 			// ONE PRESS KILLS UP TO AN IMP (owner 2026-10-31); anything bigger takes a longer
 			// hold. The bite is an imp's own spawn health, read from its class, not a guess.
 			// Each crush_tics of hold is one bite; HandGrab sends the next one while it is held.
-			int bite = int(F2('ae_loader_crush_damage', GetDefaultByType('DoomImp').Health));
+			int bite = int(F('ae_loader_crush_damage', GetDefaultByType('DoomImp').Health));
 			Rumble(mo, hand == 1, 4, 10);
 			if (t.health > bite)
 			{
@@ -1314,8 +1472,8 @@ class AE_LoaderHandler : EventHandler
 		}
 
 		Vector3 pt = (e.Args[0] / 8.0, e.Args[1] / 8.0, (e.Args[2] >> 1) / 8.0);
-		double rad = F2('ae_loader_claw_radius', 40.0);
-		int dmg = int(F2('ae_loader_swing_damage', 100.0));		// owner 2026-10-31: 100, knocked aside, stunned
+		double rad = F('ae_loader_claw_radius', 40.0);
+		int dmg = int(F('ae_loader_swing_damage', 100.0));		// owner 2026-10-31: 100, knocked aside, stunned
 
 		let it = BlockThingsIterator.CreateFromPos(pt.x, pt.y, pt.z, 0, rad, false);
 		int hits = 0;
@@ -1347,10 +1505,10 @@ class AE_LoaderHandler : EventHandler
 				double al = away.Length();
 				if (al > 0.01)
 				{
-					double push = F2('ae_loader_swing_push', 18.0) * 100.0 / max(t.Mass, 50);
+					double push = F('ae_loader_swing_push', 18.0) * 100.0 / max(t.Mass, 50);
 					t.vel += away / al * push + (0, 0, push * 0.3);
 				}
-				Stun(t, int(F2('ae_loader_stun', 35.0)));
+				Stun(t, int(F('ae_loader_stun', 35.0)));
 				HitStop(t, 4);
 			}
 			Rumble(mo, hand == 1, 3, 6);
@@ -1438,8 +1596,21 @@ class AE_LoaderHandler : EventHandler
 			Drop(i);
 			return;
 		}
+		// A SOLID held body must not be pulled into the operator (it would block his own
+		// movement): the carry target stays at least both radii + 8 from the pawn, pushed out
+		// along the line from the pawn. In practice the claw is 1.5 m ahead and the clamp never
+		// bites; it is there for a claw swung back across the chest.
+		Vector3 pm = pt - mo.pos;
+		pm.z = 0;
+		double minD = mo.radius + t.radius + 8.0;
+		double pl = pm.Length();
+		if (pl < minD)
+		{
+			Vector3 dir = pl > 0.01 ? pm / pl : (cos(mo.angle), sin(mo.angle), 0);
+			pt = (mo.pos.x, mo.pos.y, pt.z) + dir * minD;
+		}
 		Vector3 d = pt - t.pos;
-		double k = clamp(F2('ae_loader_carry', 0.35), 0.05, 1.0);
+		double k = clamp(F('ae_loader_carry', 0.35), 0.05, 1.0);
 		t.vel = d * k;
 		if (t.vel.Length() > 40)
 			t.vel = t.vel.Unit() * 40;
@@ -1452,7 +1623,11 @@ class AE_LoaderHandler : EventHandler
 		held[i] = t;
 		heldGrav[i] = t.bNOGRAVITY;
 		t.bNOGRAVITY = true;
-		t.bTHRUACTORS = true;
+		// NOT bTHRUACTORS (2026-11-08). It was set here so a held body would not snag on other
+		// actors, and it cost the human shield and the battering ram: P_LineAttack's actor filter
+		// skips THRUACTORS (p_map.cpp:4673-4700, survey 06 §2 and §4.5) and PIT_CheckThing lets
+		// movers through it, so a held Alien stopped no bullet and no projectile and could not
+		// be rammed into another body. Solid, it does both. Carry() keeps it off the pawn.
 		crushFor[i] = 0;
 
 		// FROZEN IN PAIN WHILE IT IS HELD, 2026-10-24 (owner: "I EXPECT WHATEVER MONSTER IN MY
@@ -1488,7 +1663,7 @@ class AE_LoaderHandler : EventHandler
 		if (!t)
 			return;
 		t.bNOGRAVITY = heldGrav[i];
-		t.bTHRUACTORS = false;
+		t.bTHRUACTORS = false;		// never set since 2026-11-08; cleared in case a save carried it
 		// let it move again: back to See if it has one, else Spawn. Without this a released
 		// monster keeps the -1 tic and stands in its pain frame for ever.
 		if (heldPain[i] && t.health > 0)
@@ -1538,7 +1713,7 @@ class AE_LoaderHandler : EventHandler
 				continue;		// still flying
 
 			// it stopped: that is the impact
-			int dmg = int(clamp(was * F2('ae_loader_throw_dmg', 6.0), 0, 400));
+			int dmg = int(clamp(was * F('ae_loader_throw_dmg', 6.0), 0, 400));
 			let it = BlockThingsIterator.CreateFromPos(t.pos.x, t.pos.y, t.pos.z, 0,
 			                                           t.radius + 24, false);
 			while (it.Next())
@@ -1567,16 +1742,22 @@ class AE_LoaderHandler : EventHandler
 
 		if (!held[i])
 		{
-			if (shut && clawShut[i] >= 1.0)
+			// one event per 5 tics, not per tic: a shut empty claw was sending ae_grab every tic
+			// to every machine (rig, 2026-11-08)
+			if (grabQuiet[i] > 0) grabQuiet[i]--;
+			if (shut && clawShut[i] >= 1.0 && grabQuiet[i] <= 0)
+			{
+				grabQuiet[i] = 5;
 				EventHandler.SendNetworkEvent("ae_grab", int(pt.x * 8), int(pt.y * 8),
 				                              (int(pt.z * 8) << 1) | h);
+			}
 			return;
 		}
 
 		// holding: let go when the claw opens, and throw at the speed the arm was moving
 		if (!shut)
 		{
-			Vector3 v = (pt - ClawWas(i)) * F2('ae_loader_throw', 1.6);
+			Vector3 v = (pt - ClawWas(i)) * F('ae_loader_throw', 1.6);
 			clawPrev[i] = pt;
 			EventHandler.SendNetworkEvent("ae_drop", int(v.x * 64), int(v.y * 64),
 			                              (int(v.z * 64) << 1) | h);
@@ -1589,7 +1770,7 @@ class AE_LoaderHandler : EventHandler
 		if (clawShut[i] >= 0.98)
 		{
 			crushFor[i]++;
-			int ct = int(max(F2('ae_loader_crush_tics', 12.0), 1.0));
+			int ct = int(max(F('ae_loader_crush_tics', 12.0), 1.0));
 			if (crushFor[i] % ct == 0)		// every crush_tics of hold is one more bite
 				EventHandler.SendNetworkEvent("ae_crush", h, 0, 0);
 		}

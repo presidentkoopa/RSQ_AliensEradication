@@ -131,3 +131,29 @@ point near the body; `ae_loader_arms 0` already falls back to the old single mod
 ## 4. Order I would suggest, if asked
 2.1 (rig, one press) -> 2.2 (one flag) -> 2.3 (claw point from the mesh) -> headset look at 2.4 -> then 1, 2, 4
 for feel, then 5/6/7 for play. Everything below that is a conversation.
+
+## 5. VR fit (owner 23:06: "any of this not mesh well with vr?")
+
+Shipped, in order of how much it breaks presence:
+1. **Cage and beacon are psprite layers, so they ride the MAIN controller** (survey W3: every psprite layer is
+   hand-locked). A roll cage 69 cm from the face that rotates about the wrist is the worst mismatch the loader
+   can have. Options: world actor re-posed at the pawn per tic (the cut body frame), or shrink to a bar that
+   plausibly lives on the arm, or absorption only with no mesh.
+2. **Claw point vs drawn jaws** (2.3): in VR you reach and watch; hitting where you did not see is what makes
+   the machine feel fake. The most VR-critical fix here.
+3. **`A_SetGravity(3)` on Select**: sharp vertical acceleration the body did not make. Slow walk is comfortable,
+   fast falling is not. Back to 1.
+4. **`bAddBob = true` on the boom layers**: bob on a controller-locked model sways against the hand. The cage
+   already sets it false; the arms should.
+5. **Quakes assume `r_quakeintensity` 0.** A user who raised it gets camera shake per stride. Read it; if > 0,
+   skip the quake and keep the sound.
+6. Arm lag/overshoot: correctly off. Mass must come from sound, haptics and the HELD object, never from the
+   boom trailing the hand.
+
+Wish list:
+7. **Two-claw lift** (3.5) meets the 0.50 m two-hand-stabilisation trap (W11): hands close + off-grip edge and
+   RSQ_Hands (the left boom's owner) stops drawing and reading. Triggers only, with a warning, or not on stock.
+8. **Getting in** (3.2): the 41->61 eye rise is 60 cm of vertical vection; short, vertical-only, hands buzzing.
+9. **Boss clinch** (3.9): the Queen moves, never the pawn.
+Fine: spring carry, pin, held crush, ram, arc, torch, stomp, held-barrel ram, item grab, wrist gauge, swing
+gates, quake haptics. They act on the world and the hands, not the head.

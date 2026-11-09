@@ -28,7 +28,7 @@ Model M240Flamethrower_3D
 	Model 0 "hand.md3"
 	Skin 0 "hand.png"
 	Scale -1.0 1.0 1.0
-	Offset 0.000 -24.000 -10.000	// GunHook (0.000 0.000 0.000) baked 2026-10-23 (y/z swapped)
+	Offset -0.501 -26.724 -11.987	// GunHook (-0.501 -1.987 -2.724) baked (y/z swapped) by tools/fit_hands_cards.py 2026-11-08
 FrameIndex RQGS A 0 0	// Ermac hand.md3 frame 0
 	FrameIndex RQGS B 0 1	// Ermac hand.md3 frame 1
 	FrameIndex RQGS C 0 2	// Ermac hand.md3 frame 19
@@ -53,7 +53,7 @@ Model M4A3Pistol_3D
 	Model 0 "hand.md3"
 	Skin 0 "hand.png"
 	Scale -1.0 1.0 1.0
-	Offset 0.000 -21.500 -8.500	// GunHook (0.000 1.500 2.500) baked 2026-10-23 (y/z swapped)
+	Offset -0.177 -14.211 -14.144	// GunHook (-0.177 -4.144 9.789) baked (y/z swapped) by tools/fit_hands_cards.py 2026-11-08
 FrameIndex RQGS A 0 0	// Ermac hand.md3 frame 0
 	FrameIndex RQGS B 0 1	// Ermac hand.md3 frame 1
 	FrameIndex RQGS C 0 2	// Ermac hand.md3 frame 19
@@ -78,7 +78,7 @@ Model MercPistol_3D
 	Model 0 "hand.md3"
 	Skin 0 "hand.png"
 	Scale -1.0 1.0 1.0
-	Offset 0.000 -21.500 -8.500	// GunHook (0.000 1.500 2.500) baked 2026-10-23 (y/z swapped)
+	Offset -0.177 -14.211 -14.144	// GunHook (-0.177 -4.144 9.789) baked (y/z swapped) by tools/fit_hands_cards.py 2026-11-08
 FrameIndex RQGS A 0 0	// Ermac hand.md3 frame 0
 	FrameIndex RQGS B 0 1	// Ermac hand.md3 frame 1
 	FrameIndex RQGS C 0 2	// Ermac hand.md3 frame 19
@@ -103,7 +103,7 @@ Model NewShotgun_3D
 	Model 0 "hand.md3"
 	Skin 0 "hand.png"
 	Scale -1.0 1.0 1.0
-	Offset 0.000 -24.000 -10.000	// GunHook (0.000 0.000 0.000) baked 2026-10-23 (y/z swapped)
+	Offset 2.000 -20.900 -16.100	// GunHook (2.000 -6.100 3.100) baked (y/z swapped) by tools/fit_hands_cards.py 2026-11-08
 FrameIndex RQGS A 0 0	// Ermac hand.md3 frame 0
 	FrameIndex RQGS B 0 1	// Ermac hand.md3 frame 1
 	FrameIndex RQGS C 0 2	// Ermac hand.md3 frame 19
@@ -128,7 +128,7 @@ Model PulseRifle_3D
 	Model 0 "hand.md3"
 	Skin 0 "hand.png"
 	Scale -1.0 1.0 1.0
-	Offset 0.000 -24.000 -9.500	// GunHook (0.000 0.500 0.000) baked 2026-10-23 (y/z swapped)
+	Offset -0.326 -17.984 -16.974	// GunHook (-0.326 -6.974 6.016) baked (y/z swapped) by tools/fit_hands_cards.py 2026-11-08
 FrameIndex RQGS A 0 0	// Ermac hand.md3 frame 0
 	FrameIndex RQGS B 0 1	// Ermac hand.md3 frame 1
 	FrameIndex RQGS C 0 2	// Ermac hand.md3 frame 19
@@ -153,7 +153,7 @@ Model SynthPistol_3D
 	Model 0 "hand.md3"
 	Skin 0 "hand.png"
 	Scale -1.0 1.0 1.0
-	Offset 0.000 -21.500 -8.500	// GunHook (0.000 1.500 2.500) baked 2026-10-23 (y/z swapped)
+	Offset -0.177 -14.211 -14.144	// GunHook (-0.177 -4.144 9.789) baked (y/z swapped) by tools/fit_hands_cards.py 2026-11-08
 FrameIndex RQGS A 0 0	// Ermac hand.md3 frame 0
 	FrameIndex RQGS B 0 1	// Ermac hand.md3 frame 1
 	FrameIndex RQGS C 0 2	// Ermac hand.md3 frame 19
@@ -178,7 +178,7 @@ Model YutaniFlamer_3D
 	Model 0 "hand.md3"
 	Skin 0 "hand.png"
 	Scale -1.0 1.0 1.0
-	Offset 0.000 -24.000 -10.000	// GunHook (0.000 0.000 0.000) baked 2026-10-23 (y/z swapped)
+	Offset -0.501 -26.724 -11.987	// GunHook (-0.501 -1.987 -2.724) baked (y/z swapped) by tools/fit_hands_cards.py 2026-11-08
 FrameIndex RQGS A 0 0	// Ermac hand.md3 frame 0
 	FrameIndex RQGS B 0 1	// Ermac hand.md3 frame 1
 	FrameIndex RQGS C 0 2	// Ermac hand.md3 frame 19
@@ -203,7 +203,7 @@ Model YutaniPistol_3D
 	Model 0 "hand.md3"
 	Skin 0 "hand.png"
 	Scale -1.0 1.0 1.0
-	Offset 0.000 -21.500 -8.500	// GunHook (0.000 1.500 2.500) baked 2026-10-23 (y/z swapped)
+	Offset -0.177 -14.211 -14.144	// GunHook (-0.177 -4.144 9.789) baked (y/z swapped) by tools/fit_hands_cards.py 2026-11-08
 FrameIndex RQGS A 0 0	// Ermac hand.md3 frame 0
 	FrameIndex RQGS B 0 1	// Ermac hand.md3 frame 1
 	FrameIndex RQGS C 0 2	// Ermac hand.md3 frame 19
@@ -228,7 +228,7 @@ Model YutaniRifle_3D
 	Model 0 "hand.md3"
 	Skin 0 "hand.png"
 	Scale -1.0 1.0 1.0
-	Offset 0.000 -24.000 -9.500	// GunHook (0.000 0.500 0.000) baked 2026-10-23 (y/z swapped)
+	Offset -0.326 -17.984 -16.974	// GunHook (-0.326 -6.974 6.016) baked (y/z swapped) by tools/fit_hands_cards.py 2026-11-08
 FrameIndex RQGS A 0 0	// Ermac hand.md3 frame 0
 	FrameIndex RQGS B 0 1	// Ermac hand.md3 frame 1
 	FrameIndex RQGS C 0 2	// Ermac hand.md3 frame 19
@@ -253,7 +253,7 @@ Model YutaniShotgun_3D
 	Model 0 "hand.md3"
 	Skin 0 "hand.png"
 	Scale -1.0 1.0 1.0
-	Offset 0.000 -24.000 -10.000	// GunHook (0.000 0.000 0.000) baked 2026-10-23 (y/z swapped)
+	Offset 2.000 -20.900 -16.100	// GunHook (2.000 -6.100 3.100) baked (y/z swapped) by tools/fit_hands_cards.py 2026-11-08
 FrameIndex RQGS A 0 0	// Ermac hand.md3 frame 0
 	FrameIndex RQGS B 0 1	// Ermac hand.md3 frame 1
 	FrameIndex RQGS C 0 2	// Ermac hand.md3 frame 19

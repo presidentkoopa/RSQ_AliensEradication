@@ -103,6 +103,12 @@ def gun_blocks():
             m = re.match(r'^\s*Offset\s+(\S+)\s+(\S+)\s+(\S+)', line, re.I)
             if m:
                 d['off'] = [float(x) for x in m.groups()]
+            m = re.match(r'^\s*ZOffset\s+(\S+)', line, re.I)
+            if m:
+                d['zoff'] = float(m.group(1))
+            m = re.match(r'^\s*FrameIndex\s+\w+\s+A\s+0\s+(\d+)', line, re.I)
+            if m and 'frame' not in d:
+                d['frame'] = int(m.group(1))   # the Ready frame (2026-11-08; was always frame 0)
         if cur and d.get('model'):
             blocks.setdefault(cur, []).append(dict(d))
 
@@ -114,7 +120,9 @@ def gun_blocks():
                 continue
             p = norm(os.path.join(ROOT, b.get('path', ''), b['model']))
             if os.path.exists(p):
-                res[cls] = dict(mesh=p, scale=b.get('scale', [1, 1, 1]), off=b.get('off', [0, 0, 0]))
+                off = list(b.get('off', [0, 0, 0]))
+                if 'zoff' in b: off = [off[0], off[1], b['zoff']]   # the TC blocks write Offset x y + ZOffset (2026-11-08)
+                res[cls] = dict(mesh=p, scale=b.get('scale', [1, 1, 1]), off=off, frame=b.get('frame', 0))
                 break
     return res
 
@@ -135,7 +143,7 @@ def main():
         if not body:
             print('%-22s -- no gun body mesh found in any MODELDEF' % cls)
             continue
-        items = [dict(path=body['mesh'], frame=0, scale=body['scale'], off=body['off'],
+        items = [dict(path=body['mesh'], frame=body.get('frame', 0), scale=body['scale'], off=body['off'],
                       color=[120, 120, 110])]
         gpose = row['gunpose']
         if gpose in POSE_FRAME:
@@ -143,8 +151,13 @@ def main():
                               off=[0, -24, -10], hook=list(row['gunhook']),
                               rot=list(row['gunrot']), color=[235, 140, 40]))
         spose = row['supportpose']
-        if spose in POSE_FRAME:
-            items.append(dict(path=hand2 if spose == 'C' else hand, frame=POSE_FRAME[spose],
+        # FIXED 2026-11-08: the support letters are RQSP A/B/C = hand2.md3 frames 0/1/2 (MODELDEF.ae), the frames
+        # hands.zs draws as "Sup"+letter. This drew hand.md3 at the GUN-pose frame of the same letter (frame 1 for
+        # 'B': a gun-hand pose), which put every support hand on the wrong mesh next to the gun hand -- the survey
+        # was reporting its own error, not the table's.
+        SUP_FRAME = {'A': 0, 'B': 1, 'C': 2}
+        if spose in SUP_FRAME:
+            items.append(dict(path=hand2, frame=SUP_FRAME[spose],
                               scale=[-1, 1, 1], off=[0, -24, -10], hook=list(row['supporthook']),
                               rot=list(row['supportrot']), color=[60, 200, 80]))
         made = []

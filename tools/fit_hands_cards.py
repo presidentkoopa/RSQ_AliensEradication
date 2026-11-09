@@ -50,7 +50,8 @@ SUPPORT_KEEP_SHIPPED = {'M240Flamethrower_3D'}
 #   SUPPORT_NUDGE: cm (F, L, U).
 TRIGGER_FINGER = set(GUNS)   # owner 21:20 "yes!": the default for every gun hand
 SUPPORT_NUDGE = {'NewShotgun_3D': (3.0, 0.0, 0.0),          # "nudge offhand forward some"
-                 'M240Flamethrower_3D': (0.0, 0.0, -4.0)}   # "offhand needs moved down a little" (21:51), "down a little more" (21:52)
+                 'M240Flamethrower_3D': (0.0, 0.0, -4.0),   # "offhand needs moved down a little" (21:51), "down a little more" (21:52)
+                 'PulseRifle_3D': (0.0, 0.0, -1.5)}         # "lower support hand just a tad" (22:16)
 GUN_NUDGE = {'M240Flamethrower_3D': (0.0, 0.0, 1.5)}        # "mainhand needs moved up a little, super close"
 # the owner approved this gun hand on its sheet (21:41, "pr and shotgun good") BEFORE the trigger-frame rule moved it
 # 5 cm back (21:55: "shotgun grip hand is bad, it was good before"): pinned where he approved it, kit translation (F, L, U).
